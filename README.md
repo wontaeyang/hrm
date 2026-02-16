@@ -1,10 +1,8 @@
 # HRM — Home Row Mods for macOS
 
-A native macOS menu bar app that turns your home row keys into dual-function keys — tap for the letter, hold for a modifier. Built on a **timeless** tap-hold implementation where hold vs tap is decided entirely by other key activity, not by duration timers.
-
-## Screenshots
-
 ![Main Panel](./Images/screen_01.jpg)
+
+A native macOS menu bar app that turns your home row keys into dual-function keys — tap for the letter, hold for a modifier. Built on a **timeless** tap-hold implementation where hold vs tap is decided entirely by other key activity, not by duration timers.
 
 ## How It Works
 

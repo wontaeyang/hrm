@@ -16,7 +16,7 @@ Unlike timer-based implementations, HRM uses a **timeless** approach. There is n
 ## Default Layout
 
 ```
-Left Hand                Right Hand
+        Left Hand                 Right Hand
 ┌───┐┌───┐┌───┐┌───┐┌───┐  ┌───┐┌───┐┌───┐┌───┐┌───┐
 │ A ││ S ││ D ││ F ││ G │  │ H ││ J ││ K ││ L ││ ; │
 │ ⌃ ││ ⌥ ││ ⌘ ││ ⇧ ││   │  │   ││ ⇧ ││ ⌘ ││ ⌥ ││ ⌃ │

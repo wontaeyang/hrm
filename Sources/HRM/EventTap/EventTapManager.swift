@@ -79,9 +79,7 @@ final class EventTapManager: TapHoldEngineDelegate {
 
         switch result {
         case .passThrough:
-            if type == .keyDown {
-                suppressedKeyCodes.remove(keyCode)
-            }
+            suppressedKeyCodes.remove(keyCode)
             if !currentModifierFlags.isEmpty {
                 event.flags = event.flags.union(currentModifierFlags)
             }

@@ -112,10 +112,13 @@ struct TapHoldEngineTests {
         // Release E — timeless policy sees otherKeyUp → hold
         let eUp = makeCGEvent(keyCode: keyE, keyDown: false)
         let r3 = engine.handleKeyUp(keyCode: keyE, event: eUp, timestamp: 1.080)
-        // After hold resolves, buffer should flush
-        #expect(r3 == .passThrough)  // eUp itself passes through since no undecided
+        // After hold resolves, buffer should flush. eUp is suppressed because
+        // it was buffered before resolution and flushed via CGEvent.post to
+        // maintain correct event ordering with synthetic flagsChanged events.
+        #expect(r3 == .suppress)
         #expect(delegate.holds.count == 1)
-        #expect(delegate.flushedEvents.count == 1)
+        #expect(delegate.flushedEvents.count == 1)  // one flush call
+        #expect(delegate.flushedEvents[0].count == 2)  // containing eDown + eUp
     }
 
     // MARK: - Key Rollover

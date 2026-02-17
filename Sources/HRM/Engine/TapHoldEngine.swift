@@ -116,30 +116,37 @@ final class TapHoldEngine {
 
         let position = positionForKeyCode(keyCode)
 
-        // If any machine is undecided, buffer the event and notify machines
-        var anyResolved = false
-        for (_, m) in machines where m.isUndecided {
-            let action = m.onOtherKeyDown(keyCode: keyCode, position: position, at: timestamp)
-            if action != .none {
-                handleAction(action, machine: m)
-                anyResolved = true
-            }
-        }
-
-        // If any machine is still undecided, buffer this event
-        if anyMachineUndecided {
+        // Buffer the event BEFORE notifying machines. If the notification
+        // resolves all undecided machines, the buffer (including this event)
+        // is flushed via CGEvent.post — guaranteeing correct event order.
+        // Without this, the real event returned from the callback can reach
+        // apps before the synthetically posted events (flagsChanged, etc.).
+        let hadUndecided = anyMachineUndecided
+        if hadUndecided {
             buffer.append(BufferedEvent(
                 event: event.copy()!,
                 keyCode: keyCode,
                 isKeyDown: true,
                 timestamp: timestamp
             ))
+        }
+
+        for (_, m) in machines where m.isUndecided {
+            let action = m.onOtherKeyDown(keyCode: keyCode, position: position, at: timestamp)
+            if action != .none {
+                handleAction(action, machine: m)
+            }
+        }
+
+        // Still undecided — event already buffered above
+        if anyMachineUndecided {
             return .suppress
         }
 
-        // If we resolved something, flush buffer then pass through
-        if anyResolved {
-            flushBuffer()
+        // All machines resolved — buffer was flushed (including this event).
+        // Suppress the real event to prevent out-of-order delivery.
+        if hadUndecided {
+            return .suppress
         }
 
         return .passThrough
@@ -183,27 +190,36 @@ final class TapHoldEngine {
 
         // Non-mod-tap key up
         let position = positionForKeyCode(keyCode)
-        var anyResolved = false
-        for (_, m) in machines where m.isUndecided {
-            let action = m.onOtherKeyUp(keyCode: keyCode, position: position, at: timestamp)
-            if action != .none {
-                handleAction(action, machine: m)
-                anyResolved = true
-            }
-        }
 
-        if anyMachineUndecided {
+        // Buffer the keyUp BEFORE resolving holds — same reasoning as keyDown:
+        // if resolution flushes the buffer, this keyUp is included in the
+        // correct order (after the buffered keyDown and flagsChanged events).
+        let hadUndecided = anyMachineUndecided
+        if hadUndecided {
             buffer.append(BufferedEvent(
                 event: event.copy()!,
                 keyCode: keyCode,
                 isKeyDown: false,
                 timestamp: timestamp
             ))
+        }
+
+        for (_, m) in machines where m.isUndecided {
+            let action = m.onOtherKeyUp(keyCode: keyCode, position: position, at: timestamp)
+            if action != .none {
+                handleAction(action, machine: m)
+            }
+        }
+
+        // Still undecided — event already buffered above
+        if anyMachineUndecided {
             return .suppress
         }
 
-        if anyResolved {
-            flushBuffer()
+        // All machines resolved — buffer was flushed (including this event).
+        // Suppress the real event to prevent out-of-order delivery.
+        if hadUndecided {
+            return .suppress
         }
 
         return .passThrough

@@ -76,6 +76,39 @@ Click any keycap in the panel to open its detail view and configure overrides.
 - macOS 14.0 or later
 - Accessibility permission (required to intercept keyboard events)
 
+## Building
+
+```bash
+swift build -c release --arch arm64 --arch x86_64
+```
+
+This produces a universal binary at `.build/apple/Products/Release/HRM`.
+
+## Releasing
+
+The `scripts/release.sh` script automates building, code signing, notarization, and packaging:
+
+```bash
+# Pass credentials via env vars
+APPLE_ID="your@email.com" APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx" ./scripts/release.sh
+
+# Or run interactively (will prompt for credentials)
+./scripts/release.sh
+```
+
+The script will:
+1. Build a universal binary (arm64 + x86_64)
+2. Create and sign an `HRM.app` bundle with Developer ID
+3. Submit to Apple for notarization
+4. Staple the notarization ticket
+5. Package as `HRM.zip`
+
+To publish a GitHub release:
+
+```bash
+gh release create v1.0 HRM.zip --title "HRM v1.0" --notes "Initial release"
+```
+
 ## Credits
 
 Created with [Claude Code](https://claude.ai/claude-code).

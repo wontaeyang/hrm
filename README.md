@@ -76,6 +76,14 @@ Click any keycap in the panel to open its detail view and configure overrides.
 - macOS 14.0 or later
 - Accessibility permission (required to intercept keyboard events)
 
+## Running
+
+```bash
+swift run
+```
+
+Builds and runs HRM directly from source. Your terminal app (e.g., Terminal, iTerm, Ghostty) must have Accessibility permission enabled in **System Settings > Privacy & Security > Accessibility**.
+
 ## Building
 
 ```bash

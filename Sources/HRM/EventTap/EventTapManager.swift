@@ -8,6 +8,9 @@ final class EventTapManager: TapHoldEngineDelegate {
     private var engine: TapHoldEngine
     private let synthesizer = EventSynthesizer()
     private var currentModifierFlags: CGEventFlags = []
+    /// Key codes currently being suppressed by the engine (undecided/hold).
+    /// Used by the callback to skip auto-repeat events without entering the engine.
+    private(set) var suppressedKeyCodes: Set<UInt16> = []
 
     private(set) var isRunning = false
 
@@ -76,11 +79,19 @@ final class EventTapManager: TapHoldEngineDelegate {
 
         switch result {
         case .passThrough:
+            if type == .keyDown {
+                suppressedKeyCodes.remove(keyCode)
+            }
             if !currentModifierFlags.isEmpty {
                 event.flags = event.flags.union(currentModifierFlags)
             }
             return Unmanaged.passUnretained(event)
         case .suppress:
+            if type == .keyDown {
+                suppressedKeyCodes.insert(keyCode)
+            } else if type == .keyUp {
+                suppressedKeyCodes.remove(keyCode)
+            }
             return nil
         }
     }
@@ -90,6 +101,7 @@ final class EventTapManager: TapHoldEngineDelegate {
     func engineDidResolveHold(binding: KeyBinding) {
         guard let modifier = binding.modifier else { return }
         currentModifierFlags.insert(modifier.flag)
+        engine.syntheticModifierFlags = currentModifierFlags
         let flagKeyCode = binding.position.hand == .left
             ? modifier.leftFlagsChanged
             : modifier.rightFlagsChanged
@@ -99,6 +111,7 @@ final class EventTapManager: TapHoldEngineDelegate {
     func engineDidResolveHoldRelease(binding: KeyBinding) {
         guard let modifier = binding.modifier else { return }
         currentModifierFlags.remove(modifier.flag)
+        engine.syntheticModifierFlags = currentModifierFlags
         let flagKeyCode = binding.position.hand == .left
             ? modifier.leftFlagsChanged
             : modifier.rightFlagsChanged

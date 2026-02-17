@@ -33,12 +33,38 @@ final class TapHoldEngine {
         case suppress
     }
 
+    /// Modifier flags that indicate a physical modifier key is held.
+    private static let physicalModifierMask: CGEventFlags = [
+        .maskShift, .maskControl, .maskAlternate, .maskCommand,
+    ]
+
+    /// Tracks which modifier flags were synthesized by HRM (via hold resolution).
+    var syntheticModifierFlags: CGEventFlags = []
+
     func handleKeyDown(keyCode: UInt16, event: CGEvent, timestamp: TimeInterval) -> EventResult {
         // If this is a configured mod-tap key
         if let machine = machines[keyCode] {
             // Key was passed through on press (quick-tap or require-prior-idle),
             // pass through repeat/autorepeat events too
             if passedThroughKeys.contains(keyCode) {
+                return .passThrough
+            }
+
+            // Ignore auto-repeat events for keys already in undecided or hold state
+            if machine.isUndecided || machine.state == .hold {
+                return .suppress
+            }
+
+            // If a real (non-HRM) modifier key is already held, pass through
+            // immediately — don't enter the undecided state. This lets physical
+            // Shift+A type "A", while still allowing HRM mod combos (e.g. D+A).
+            let realFlags = event.flags.intersection(Self.physicalModifierMask).subtracting(syntheticModifierFlags)
+            if !realFlags.isEmpty {
+                passedThroughKeys.insert(keyCode)
+                _ = machine.onPress(at: timestamp)
+                for (code, m) in machines where code != keyCode {
+                    m.recordOtherEvent(at: timestamp)
+                }
                 return .passThrough
             }
 
@@ -78,11 +104,11 @@ final class TapHoldEngine {
             }
 
             handleAction(action, machine: machine)
-
             return .suppress
         }
 
         // This is a non-mod-tap key
+
         // Record as other event on all machines
         for (_, m) in machines {
             m.recordOtherEvent(at: timestamp)

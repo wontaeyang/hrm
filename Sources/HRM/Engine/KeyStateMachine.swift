@@ -64,8 +64,8 @@ final class KeyStateMachine {
     // MARK: - Events
 
     func onPress(at timestamp: TimeInterval) -> KeyMachineAction {
-        // Ignore repeat keyDown events while already holding
-        if state == .hold {
+        // Ignore repeat keyDown events while already holding or undecided
+        if state == .hold || state == .undecided {
             return .none
         }
 

@@ -23,6 +23,15 @@ func eventTapCallback(
         return Unmanaged.passUnretained(event)
     }
 
+    // Fast path: skip auto-repeat events for keys we're already suppressing.
+    // This prevents repeat floods from clogging the event tap while keys are
+    // in undecided/hold state.
+    if event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+        && manager.suppressedKeyCodes.contains(UInt16(event.getIntegerValueField(.keyboardEventKeycode)))
+    {
+        return nil
+    }
+
     // Skip synthetic events to prevent feedback loops
     if EventSynthesizer.isSynthetic(event) {
         return Unmanaged.passUnretained(event)

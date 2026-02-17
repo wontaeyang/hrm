@@ -71,6 +71,24 @@ Each key binding can override the following global settings:
 
 Click any keycap in the panel to open its detail view and configure overrides.
 
+## Keyboard Rollover and Multi-Modifier Combos
+
+Most keyboards (including Apple's built-in keyboards) have limits on which keys can be registered simultaneously. This is known as **keyboard ghosting** and it affects home row mods when combining 3 or more modifiers.
+
+With home row mods, modifier keys are regular letter keys at the hardware level. Unlike dedicated modifier keys (which use a separate signaling path), letter keys share the keyboard's scan matrix and certain combinations can't all be detected at once.
+
+**What works:**
+- Any 2-modifier combo (e.g., `D`+`J` for Cmd+Shift)
+- Multi-modifier combos that **mix hands** (e.g., `J`+`K`+`A`+`4` for Shift+Cmd+Ctrl+4)
+
+**What may not work:**
+- 3+ modifiers on the **same hand** (e.g., `J`+`K`+`;` — the `;` may not register)
+- Certain key combinations depending on your keyboard's matrix layout
+
+**Workaround:** For shortcuts that need 3+ modifiers, use keys from both hands. For example, for Cmd+Shift+Ctrl+4 (screenshot selection to clipboard), hold `D`+`F`+`;` or `J`+`K`+`A` instead of keeping all modifiers on one hand.
+
+Keyboards with N-key rollover (NKRO), such as most mechanical keyboards, do not have this limitation.
+
 ## Requirements
 
 - macOS 14.0 or later

@@ -1,8 +1,10 @@
+import ServiceManagement
 import SwiftUI
 
 struct MenuBarPanelView: View {
     @ObservedObject var appState: AppState
     @State private var selectedKeyIndex: Int?
+    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
         NavigationStack {
@@ -92,6 +94,8 @@ struct MenuBarPanelView: View {
             Text("Settings")
                 .font(.headline)
 
+            settingToggle("Launch at Login", isOn: launchAtLoginBinding)
+
             settingToggle("Bilateral Filtering", isOn: bilateralFilteringBinding)
 
             HStack {
@@ -162,6 +166,18 @@ struct MenuBarPanelView: View {
     }
 
     // MARK: - Bindings
+
+    private var launchAtLoginBinding: Binding<Bool> {
+        Binding(
+            get: { launchAtLogin },
+            set: { newValue in
+                try? newValue
+                    ? SMAppService.mainApp.register()
+                    : SMAppService.mainApp.unregister()
+                launchAtLogin = SMAppService.mainApp.status == .enabled
+            }
+        )
+    }
 
     private var bilateralFilteringBinding: Binding<Bool> {
         Binding(

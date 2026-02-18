@@ -5,6 +5,7 @@ import Combine
 final class AppState: ObservableObject {
     @Published var configuration: Configuration
     @Published var isAccessibilityGranted = false
+    @Published var availableUpdate: String?
 
     private let store = ConfigurationStore()
     private var engine: TapHoldEngine
@@ -33,6 +34,11 @@ final class AppState: ObservableObject {
     private func performStartup() {
         guard !hasLaunched else { return }
         hasLaunched = true
+
+        Task { [weak self] in
+            let update = await UpdateChecker.check()
+            self?.availableUpdate = update
+        }
 
         checkAccessibility()
         if isAccessibilityGranted {

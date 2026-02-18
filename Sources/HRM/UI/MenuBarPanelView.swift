@@ -10,6 +10,9 @@ struct MenuBarPanelView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 header
+                if let version = appState.availableUpdate {
+                    updateBanner(version: version)
+                }
                 Divider()
                 scrollContent
                 Divider()
@@ -54,6 +57,27 @@ struct MenuBarPanelView: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
+    }
+
+    // MARK: - Update Banner
+
+    private func updateBanner(version: String) -> some View {
+        HStack {
+            Text("Version \(version) available")
+                .font(.body)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button("Download") {
+                if let url = URL(string: "https://github.com/wontaeyang/hrm/releases/latest") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            .buttonStyle(.link)
+            .font(.body)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 6)
+        .background(.quaternary)
     }
 
     // MARK: - Scroll Content

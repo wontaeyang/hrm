@@ -27,7 +27,7 @@ mkdir -p "${APP_NAME}.app/Contents/MacOS"
 mkdir -p "${APP_NAME}.app/Contents/Resources"
 cp ".build/apple/Products/Release/${APP_NAME}" "${APP_NAME}.app/Contents/MacOS/${APP_NAME}"
 cp Info.plist "${APP_NAME}.app/Contents/Info.plist"
-cp Sources/HRM/Resources/AppIcon.icns "${APP_NAME}.app/Contents/Resources/AppIcon.icns"
+cp Resources/AppIcon.icns "${APP_NAME}.app/Contents/Resources/AppIcon.icns"
 
 echo "==> Signing app bundle..."
 codesign --force --options runtime \

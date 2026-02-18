@@ -16,6 +16,13 @@ When you press a home row key:
 
 Unlike timer-based implementations, HRM uses a **timeless** approach. There is no hold threshold timer — the decision is based purely on whether another key was pressed and released while the home row key was down. This eliminates the latency tradeoff between fast typing and reliable modifier activation.
 
+## Installation
+
+1. Download `HRM.zip` from the [latest release](https://github.com/wontaeyang/hrm/releases/latest)
+2. Unzip and drag `HRM.app` to your Applications folder
+3. Launch HRM — it will appear in your menu bar
+4. Grant Accessibility permission when prompted (System Settings > Privacy & Security > Accessibility)
+
 ## Default Layout
 
 ```

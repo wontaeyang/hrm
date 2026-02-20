@@ -18,10 +18,22 @@ Unlike timer-based implementations, HRM uses a **timeless** approach. There is n
 
 ## Installation
 
+### Homebrew
+
+```bash
+brew tap wontaeyang/hrm
+brew install --cask hrm
+```
+
+### Manual
+
 1. Download `HRM.zip` from the [latest release](https://github.com/wontaeyang/hrm/releases/latest)
 2. Unzip and drag `HRM.app` to your Applications folder
-3. Launch HRM — it will appear in your menu bar
-4. Grant Accessibility permission when prompted (System Settings > Privacy & Security > Accessibility)
+
+### Post-install
+
+1. Launch HRM — it will appear in your menu bar
+2. Grant Accessibility permission when prompted (System Settings > Privacy & Security > Accessibility)
 
 ## Default Layout
 

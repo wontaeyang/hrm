@@ -7,18 +7,8 @@ struct MenuBarPanelView: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                header
-                if let version = appState.availableUpdate {
-                    updateBanner(version: version)
-                }
-                Divider()
-                scrollContent
-                Divider()
-                footer
-            }
-            .navigationDestination(for: Int.self) { index in
+        Group {
+            if let index = selectedKeyIndex {
                 KeyBindingDetailView(
                     binding: Binding(
                         get: { appState.configuration.keyBindings[index] },
@@ -26,10 +16,19 @@ struct MenuBarPanelView: View {
                     ),
                     config: appState.configuration,
                     onChanged: { appState.saveAndApply() },
-                    onCaptureKey: { appState.captureNextKey($0) },
-                    onCancelCapture: { appState.cancelKeyCapture() },
-                    allBindings: appState.configuration.keyBindings
+                    onDismiss: { selectedKeyIndex = nil }
                 )
+            } else {
+                VStack(spacing: 0) {
+                    header
+                    if let version = appState.availableUpdate {
+                        updateBanner(version: version)
+                    }
+                    Divider()
+                    scrollContent
+                    Divider()
+                    footer
+                }
             }
         }
         .frame(width: 400)
@@ -114,19 +113,6 @@ struct MenuBarPanelView: View {
     private var keyboardSection: some View {
         KeyboardRowView(bindings: appState.configuration.keyBindings) { index in
             selectedKeyIndex = index
-        }
-        .navigationDestination(item: $selectedKeyIndex) { index in
-            KeyBindingDetailView(
-                binding: Binding(
-                    get: { appState.configuration.keyBindings[index] },
-                    set: { appState.configuration.keyBindings[index] = $0 }
-                ),
-                config: appState.configuration,
-                onChanged: { appState.saveAndApply() },
-                onCaptureKey: { appState.captureNextKey($0) },
-                onCancelCapture: { appState.cancelKeyCapture() },
-                allBindings: appState.configuration.keyBindings
-            )
         }
     }
 

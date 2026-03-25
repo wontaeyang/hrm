@@ -62,18 +62,6 @@ final class AppState: ObservableObject {
         eventTapManager = nil
     }
 
-    func captureNextKey(_ handler: @escaping (UInt16) -> Void) {
-        engine.keyCaptureHandler = { keyCode in
-            Task { @MainActor in
-                handler(keyCode)
-            }
-        }
-    }
-
-    func cancelKeyCapture() {
-        engine.keyCaptureHandler = nil
-    }
-
     func saveAndApply() {
         try? store.save(configuration)
         engine.updateConfig(configuration)

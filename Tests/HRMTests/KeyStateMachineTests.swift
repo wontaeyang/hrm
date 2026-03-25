@@ -5,7 +5,7 @@ import Testing
 @Suite("KeyStateMachine Tests")
 struct KeyStateMachineTests {
     static let testBinding = KeyBinding(
-        keyCode: 0x00, label: "A", modifier: .shift, enabled: true, position: .leftPinky
+        keyCode: 0x00, modifier: .shift, enabled: true, position: .leftPinky
     )
 
     func makeMachine(

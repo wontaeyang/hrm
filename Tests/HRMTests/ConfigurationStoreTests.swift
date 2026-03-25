@@ -69,7 +69,7 @@ struct ConfigurationStoreTests {
     func bindingLookup() {
         let config = DefaultConfiguration.make()
         let aBinding = config.binding(for: 0x00)
-        #expect(aBinding?.label == "A")
+        #expect(aBinding?.position == .leftPinky)
         #expect(aBinding?.modifier == .control)
 
         // G is disabled by default
@@ -82,14 +82,14 @@ struct ConfigurationStoreTests {
         let config = DefaultConfiguration.make()
         let bindings = config.keyBindings
 
-        let a = bindings.first { $0.label == "A" }!
-        let s = bindings.first { $0.label == "S" }!
-        let d = bindings.first { $0.label == "D" }!
-        let f = bindings.first { $0.label == "F" }!
-        let j = bindings.first { $0.label == "J" }!
-        let k = bindings.first { $0.label == "K" }!
-        let l = bindings.first { $0.label == "L" }!
-        let semi = bindings.first { $0.label == ";" }!
+        let a = bindings.first { $0.position == .leftPinky }!
+        let s = bindings.first { $0.position == .leftRing }!
+        let d = bindings.first { $0.position == .leftMiddle }!
+        let f = bindings.first { $0.position == .leftIndex }!
+        let j = bindings.first { $0.position == .rightIndex }!
+        let k = bindings.first { $0.position == .rightMiddle }!
+        let l = bindings.first { $0.position == .rightRing }!
+        let semi = bindings.first { $0.position == .rightPinky }!
 
         #expect(a.modifier == .control)
         #expect(s.modifier == .option)

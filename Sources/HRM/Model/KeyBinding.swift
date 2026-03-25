@@ -1,7 +1,7 @@
 struct KeyBinding: Codable, Identifiable, Equatable {
     var id: String { position.rawValue }
-    var keyCode: UInt16
-    var label: String
+    let keyCode: UInt16
+    var label: String { KeyCodeLabel.label(for: keyCode) }
     var modifier: Modifier?
     var enabled: Bool
     let position: KeyPosition
@@ -10,4 +10,9 @@ struct KeyBinding: Codable, Identifiable, Equatable {
     var quickTapTermMs: Int?
     var requirePriorIdleMs: Int?
     var bilateralFiltering: Bool?
+
+    private enum CodingKeys: String, CodingKey {
+        case keyCode, modifier, enabled, position
+        case quickTapTermMs, requirePriorIdleMs, bilateralFiltering
+    }
 }

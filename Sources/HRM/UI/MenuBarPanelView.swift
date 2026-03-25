@@ -52,8 +52,12 @@ struct MenuBarPanelView: View {
             }
 
             if !appState.isAccessibilityGranted {
-                Button("Grant Accessibility Permission") {
+                Button {
                     appState.requestAccessibility()
+                } label: {
+                    Text("Grant Accessibility Permission")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 2)
                 }
                 .controlSize(.small)
             }

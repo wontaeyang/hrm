@@ -49,9 +49,9 @@ G and H are disabled by default. Each key's modifier assignment can be changed o
 
 ## Features
 
-### Key Reassignment
+### Layout Detection
 
-Each home row key can be reassigned to any physical key, making HRM compatible with any keyboard layout — AZERTY, Colemak, Dvorak, or fully custom layouts. Click any keycap in the panel, then press "Reassign" to rebind it.
+Key labels update automatically based on the active macOS input source, so the panel displays the correct characters for any keyboard layout supported by macOS — such as AZERTY, Colemak, or Dvorak.
 
 ### Bilateral Filtering
 

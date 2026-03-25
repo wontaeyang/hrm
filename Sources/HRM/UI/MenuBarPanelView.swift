@@ -69,18 +69,26 @@ struct MenuBarPanelView: View {
     // MARK: - Update Banner
 
     private func updateBanner(version: String) -> some View {
-        HStack {
-            Text("Version \(version) available")
-                .font(.body)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Button("Download") {
-                if let url = URL(string: "https://github.com/wontaeyang/hrm/releases/latest") {
-                    NSWorkspace.shared.open(url)
+        VStack(spacing: 4) {
+            HStack {
+                Text("Version \(version) available")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Download") {
+                    if let url = URL(string: "https://github.com/wontaeyang/hrm/releases/latest") {
+                        NSWorkspace.shared.open(url)
+                    }
                 }
+                .buttonStyle(.link)
+                .font(.body)
             }
-            .buttonStyle(.link)
-            .font(.body)
+            HStack {
+                Text("Homebrew: brew upgrade hrm")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                Spacer()
+            }
         }
         .padding(.horizontal)
         .padding(.vertical, 6)

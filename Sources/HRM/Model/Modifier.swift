@@ -6,7 +6,7 @@ enum Modifier: String, Codable, CaseIterable, Identifiable {
     case control
     case option
     case command
-    case globe
+    case function
 
     var id: String { rawValue }
 
@@ -16,7 +16,7 @@ enum Modifier: String, Codable, CaseIterable, Identifiable {
         case .control: "Control"
         case .option: "Option"
         case .command: "Command"
-        case .globe: "fn"
+        case .function: "Function"
         }
     }
 
@@ -26,7 +26,7 @@ enum Modifier: String, Codable, CaseIterable, Identifiable {
         case .control: "⌃"
         case .option: "⌥"
         case .command: "⌘"
-        case .globe: "🌐"
+        case .function: "fn"
         }
     }
 
@@ -36,7 +36,7 @@ enum Modifier: String, Codable, CaseIterable, Identifiable {
         case .control: .maskControl
         case .option: .maskAlternate
         case .command: .maskCommand
-        case .globe: .maskSecondaryFn
+        case .function: .maskSecondaryFn
         }
     }
 
@@ -46,7 +46,7 @@ enum Modifier: String, Codable, CaseIterable, Identifiable {
         case .control: 0x3B  // kVK_Control
         case .option: 0x3A   // kVK_Option
         case .command: 0x37  // kVK_Command
-        case .globe: 0x3F    // kVK_Function
+        case .function: 0x3F    // kVK_Function
         }
     }
 
@@ -56,7 +56,7 @@ enum Modifier: String, Codable, CaseIterable, Identifiable {
         case .control: 0x3E  // kVK_RightControl
         case .option: 0x3D   // kVK_RightOption
         case .command: 0x36  // kVK_RightCommand
-        case .globe: 0x3F    // kVK_Function (no left/right variant)
+        case .function: 0x3F    // kVK_Function (no left/right variant)
         }
     }
 
@@ -66,7 +66,7 @@ enum Modifier: String, Codable, CaseIterable, Identifiable {
         case .control: .teal
         case .option:  .purple
         case .command: .blue
-        case .globe:   .green
+        case .function:   .green
         }
     }
 }

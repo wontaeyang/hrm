@@ -106,6 +106,7 @@ struct MenuBarPanelView: View {
             }
             .padding()
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     // MARK: - Keyboard Section

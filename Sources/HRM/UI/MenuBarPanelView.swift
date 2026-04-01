@@ -48,15 +48,80 @@ struct MenuBarPanelView: View {
                 .fixedSize()
             }
 
-            if !appState.isAccessibilityGranted {
-                Button("Grant Accessibility Permission") {
-                    appState.requestAccessibility()
+            permissionStatus
+
+            if appState.eventTapFailed {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("Event tap failed to start", systemImage: "xmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                    Text("Remove HRM from Accessibility and Input Monitoring in System Settings, restart the app, and re-grant permissions.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        Button("Open Privacy Settings") { openPrivacySettings() }
+                        Button("Retry") {
+                            appState.stopEventTap()
+                            appState.startEventTap()
+                        }
+                    }
+                    .controlSize(.small)
                 }
-                .controlSize(.small)
+            }
+
+            if appState.eventTapDegraded {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("Keyboard events not received — permissions may be stale", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                    Text("Remove HRM from both Accessibility and Input Monitoring, restart the app, and re-grant permissions.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("Open Privacy Settings") { openPrivacySettings() }
+                        .controlSize(.small)
+                }
             }
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
+    }
+
+    // MARK: - Permission Status
+
+    @ViewBuilder
+    private var permissionStatus: some View {
+        let axOK = appState.isAccessibilityGranted
+        let imOK = appState.isInputMonitoringGranted
+
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
+                Image(systemName: axOK ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .foregroundStyle(axOK ? .green : .red)
+                Text("Accessibility")
+                    .font(.caption)
+                Spacer()
+                Image(systemName: imOK ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .foregroundStyle(imOK ? .green : .red)
+                Text("Input Monitoring")
+                    .font(.caption)
+            }
+
+            if !axOK || !imOK {
+                HStack {
+                    Button("Grant Permissions") {
+                        appState.requestPermissions()
+                    }
+                    Button("Open Privacy Settings") { openPrivacySettings() }
+                }
+                .controlSize(.small)
+            }
+        }
+    }
+
+    private func openPrivacySettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     // MARK: - Update Banner
@@ -120,6 +185,8 @@ struct MenuBarPanelView: View {
 
             settingToggle("Launch at Login", isOn: launchAtLoginBinding)
 
+            settingToggle("Caps Lock → Backspace", isOn: capsLockRemapBinding)
+
             settingToggle("Bilateral Filtering", isOn: bilateralFilteringBinding)
 
             HStack {
@@ -138,6 +205,21 @@ struct MenuBarPanelView: View {
             .disabled(!appState.configuration.bilateralFiltering)
             msStepper("Quick Tap Term", value: quickTapTermBinding)
             msStepper("Require Prior Idle", value: requirePriorIdleBinding)
+
+            HStack {
+                Text("Keyboard")
+                    .font(.body)
+                Spacer()
+                Picker("", selection: selectedKeyboardBinding) {
+                    Text("All Keyboards").tag(Int?.none)
+                    ForEach(appState.keyboardMonitor.discoveredKeyboards) { keyboard in
+                        Text(keyboard.name).tag(Int?.some(keyboard.keyboardType))
+                    }
+                }
+                .pickerStyle(.menu)
+                .frame(maxWidth: 200)
+                .labelsHidden()
+            }
         }
     }
 
@@ -203,6 +285,16 @@ struct MenuBarPanelView: View {
         )
     }
 
+    private var capsLockRemapBinding: Binding<Bool> {
+        Binding(
+            get: { appState.configuration.remapCapsLockToBackspace },
+            set: {
+                appState.configuration.remapCapsLockToBackspace = $0
+                appState.saveAndApply()
+            }
+        )
+    }
+
     private var bilateralFilteringBinding: Binding<Bool> {
         Binding(
             get: { appState.configuration.bilateralFiltering },
@@ -238,6 +330,22 @@ struct MenuBarPanelView: View {
             get: { appState.configuration.requirePriorIdleMs },
             set: {
                 appState.configuration.requirePriorIdleMs = $0
+                appState.saveAndApply()
+            }
+        )
+    }
+
+    private var selectedKeyboardBinding: Binding<Int?> {
+        Binding(
+            get: { appState.configuration.selectedKeyboard?.keyboardType },
+            set: { newType in
+                if let type = newType,
+                   let device = appState.keyboardMonitor.discoveredKeyboards.first(where: { $0.keyboardType == type })
+                {
+                    appState.configuration.selectedKeyboard = device
+                } else {
+                    appState.configuration.selectedKeyboard = nil
+                }
                 appState.saveAndApply()
             }
         )

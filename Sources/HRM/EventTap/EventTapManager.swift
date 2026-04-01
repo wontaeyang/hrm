@@ -1,3 +1,4 @@
+import ApplicationServices
 import CoreGraphics
 import Foundation
 
@@ -8,19 +9,75 @@ final class EventTapManager: TapHoldEngineDelegate {
     private var engine: TapHoldEngine
     private let synthesizer = EventSynthesizer()
     private var currentModifierFlags: CGEventFlags = []
+    /// Monitor that discovers keyboards from the event stream.
+    weak var keyboardMonitor: KeyboardMonitor?
     /// Key codes currently being suppressed by the engine (undecided/hold).
     /// Used by the callback to skip auto-repeat events without entering the engine.
     private(set) var suppressedKeyCodes: Set<UInt16> = []
 
     private(set) var isRunning = false
+    /// Called on the main queue when the event tap fails to create or is degraded.
+    var onEventTapFailed: (() -> Void)?
+    /// Called on the main queue when the event tap needs re-authorization.
+    var onEventTapDegraded: (() -> Void)?
+
+    /// Tracks whether we've received any keyDown events (not just flagsChanged).
+    /// If we see flagsChanged but no keyDown within a few seconds, the tap is degraded.
+    private var hasReceivedKeyDown = false
+    private var hasReceivedFlagsChanged = false
+
+    /// Keyboard type to filter for, or -1 for all keyboards.
+    private var _selectedKeyboardType: Int = -1
+
+    /// Whether Caps Lock → Backspace remap is active.
+    private var _remapCapsLockToBackspace: Bool = false
+
+    /// Tracks whether Caps Lock (remapped to F18) is physically held for auto-repeat.
+    private var capsLockDown = false
+    private var capsLockRepeatTimer: DispatchSourceTimer?
+
+    // Caps Lock is remapped to F18 via hidutil at the HID level.
+    // F18 CGEvent keycode = 79 (0x4F). This means our event tap sees
+    // regular keyDown/keyUp for F18 — no toggle, no LED, no caps state.
+    private static let f18KeyCode: UInt16 = 0x4F
+    private static let backspaceKeyCode: UInt16 = 0x33
 
     init(engine: TapHoldEngine) {
         self.engine = engine
         engine.delegate = self
     }
 
+    func setSelectedKeyboard(_ keyboard: KeyboardDevice?) {
+        _selectedKeyboardType = keyboard?.keyboardType ?? -1
+    }
+
+    func setRemapCapsLockToBackspace(_ enabled: Bool) {
+        let wasEnabled = _remapCapsLockToBackspace
+        _remapCapsLockToBackspace = enabled
+        if enabled && !wasEnabled {
+            Self.applyCapsLockHidutilMapping()
+        } else if !enabled && wasEnabled {
+            stopCapsLockRepeat()
+            capsLockDown = false
+            Self.removeCapsLockHidutilMapping()
+        }
+    }
+
+    func shouldFilterEvent(_ event: CGEvent) -> Bool {
+        let keyboardType = Int(event.getIntegerValueField(.keyboardEventKeyboardType))
+        keyboardMonitor?.recordKeyboardType(keyboardType)
+        let selected = _selectedKeyboardType
+        guard selected >= 0 else { return false }
+        return keyboardType != selected
+    }
+
     func start() {
         guard !isRunning else { return }
+
+        // Apply hidutil mapping if caps lock remap is enabled
+        if _remapCapsLockToBackspace {
+            Self.applyCapsLockHidutilMapping()
+        }
 
         tapThread = Thread { [weak self] in
             self?.runEventTapLoop()
@@ -33,6 +90,11 @@ final class EventTapManager: TapHoldEngineDelegate {
     func stop() {
         guard isRunning else { return }
         isRunning = false
+        stopCapsLockRepeat()
+
+        if _remapCapsLockToBackspace {
+            Self.removeCapsLockHidutilMapping()
+        }
 
         if let tap = eventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
@@ -69,11 +131,33 @@ final class EventTapManager: TapHoldEngineDelegate {
         let result: TapHoldEngine.EventResult
 
         if type == .keyDown {
+            hasReceivedKeyDown = true
+
+            // F18 (remapped Caps Lock) → Backspace
+            if keyCode == Self.f18KeyCode && _remapCapsLockToBackspace {
+                if !capsLockDown {
+                    capsLockDown = true
+                    synthesizer.postKeyDown(keyCode: Self.backspaceKeyCode, flags: currentModifierFlags)
+                    startCapsLockRepeat()
+                }
+                return nil
+            }
+
             result = engine.handleKeyDown(keyCode: keyCode, event: event, timestamp: timestamp)
         } else if type == .keyUp {
+            // F18 (remapped Caps Lock) → Backspace release
+            if keyCode == Self.f18KeyCode && _remapCapsLockToBackspace {
+                capsLockDown = false
+                stopCapsLockRepeat()
+                synthesizer.postKeyUp(keyCode: Self.backspaceKeyCode, flags: currentModifierFlags)
+                return nil
+            }
+
             result = engine.handleKeyUp(keyCode: keyCode, event: event, timestamp: timestamp)
+        } else if type == .flagsChanged {
+            hasReceivedFlagsChanged = true
+            return Unmanaged.passUnretained(event)
         } else {
-            // flagsChanged — pass through
             return Unmanaged.passUnretained(event)
         }
 
@@ -123,12 +207,66 @@ final class EventTapManager: TapHoldEngineDelegate {
 
     func engineShouldFlushBufferedEvents(_ events: [BufferedEvent]) {
         for buffered in events {
-            // Apply current modifier flags to buffered events
             if !currentModifierFlags.isEmpty {
                 buffered.event.flags = buffered.event.flags.union(currentModifierFlags)
             }
             synthesizer.postEvent(buffered.event)
         }
+    }
+
+    // MARK: - Caps Lock Repeat
+
+    private func startCapsLockRepeat() {
+        stopCapsLockRepeat()
+        let initialTicks = UserDefaults.standard.integer(forKey: "InitialKeyRepeat")
+        let repeatTicks = UserDefaults.standard.integer(forKey: "KeyRepeat")
+        let initialDelay = Double(initialTicks > 0 ? initialTicks : 25) * 0.015
+        let repeatInterval = Double(repeatTicks > 0 ? repeatTicks : 6) * 0.015
+
+        let timer = DispatchSource.makeTimerSource(queue: .global(qos: .userInteractive))
+        timer.schedule(deadline: .now() + initialDelay, repeating: repeatInterval)
+        timer.setEventHandler { [weak self] in
+            guard let self, self.capsLockDown else { return }
+            self.synthesizer.postKeyDown(keyCode: Self.backspaceKeyCode, flags: self.currentModifierFlags)
+        }
+        timer.resume()
+        capsLockRepeatTimer = timer
+    }
+
+    private func stopCapsLockRepeat() {
+        capsLockRepeatTimer?.cancel()
+        capsLockRepeatTimer = nil
+    }
+
+    // MARK: - hidutil Caps Lock Mapping
+
+    /// Remap Caps Lock → F18 at the HID level using hidutil.
+    /// This prevents macOS from toggling Caps Lock state/LED entirely.
+    private static func applyCapsLockHidutilMapping() {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/hidutil")
+        process.arguments = [
+            "property", "--set",
+            """
+            {"UserKeyMapping":[{"HIDKeyboardModifierMappingSrc":0x700000039,"HIDKeyboardModifierMappingDst":0x70000006D}]}
+            """,
+        ]
+        try? process.run()
+        process.waitUntilExit()
+    }
+
+    /// Remove the Caps Lock → F18 mapping, restoring default behavior.
+    private static func removeCapsLockHidutilMapping() {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/hidutil")
+        process.arguments = [
+            "property", "--set",
+            """
+            {"UserKeyMapping":[]}
+            """,
+        ]
+        try? process.run()
+        process.waitUntilExit()
     }
 
     // MARK: - Private
@@ -148,7 +286,9 @@ final class EventTapManager: TapHoldEngineDelegate {
             callback: eventTapCallback,
             userInfo: selfPtr
         ) else {
-            print("HRM: Failed to create event tap. Check Accessibility permissions.")
+            DispatchQueue.main.async { [weak self] in
+                self?.onEventTapFailed?()
+            }
             return
         }
 
@@ -162,6 +302,18 @@ final class EventTapManager: TapHoldEngineDelegate {
         CGEvent.tapEnable(tap: tap, enable: true)
 
         isRunning = true
+
+        // Watchdog: after 5 seconds, check if we're receiving keyDown events.
+        // If we only see flagsChanged but no keyDown, the tap is degraded (stale permissions).
+        DispatchQueue.global().asyncAfter(deadline: .now() + 5) { [weak self] in
+            guard let self, self.isRunning else { return }
+            if self.hasReceivedFlagsChanged && !self.hasReceivedKeyDown {
+                DispatchQueue.main.async {
+                    self.onEventTapDegraded?()
+                }
+            }
+        }
+
         CFRunLoopRun()
     }
 }

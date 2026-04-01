@@ -37,5 +37,10 @@ func eventTapCallback(
         return Unmanaged.passUnretained(event)
     }
 
+    // Skip events from keyboards that don't match the selected filter
+    if manager.shouldFilterEvent(event) {
+        return Unmanaged.passUnretained(event)
+    }
+
     return manager.processEvent(proxy: proxy, type: type, event: event)
 }

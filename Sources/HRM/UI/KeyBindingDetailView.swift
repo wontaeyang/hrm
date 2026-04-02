@@ -23,9 +23,8 @@ struct KeyBindingDetailView: View {
 
                 Spacer()
 
-                Toggle(binding.enabled ? "Enabled" : "Disabled", isOn: $binding.enabled)
-                    .toggleStyle(.switch)
-                    .fixedSize()
+                Text("Position: \(binding.position.displayName)")
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal)
             .padding(.vertical, 10)
@@ -34,6 +33,16 @@ struct KeyBindingDetailView: View {
 
             VStack(alignment: .leading, spacing: 20) {
                 groupedSection("Key Binding") {
+                    groupedRow {
+                        HStack {
+                            Text(binding.enabled ? "Enabled" : "Disabled")
+                            Spacer()
+                            Toggle("", isOn: $binding.enabled)
+                                .toggleStyle(.switch)
+                                .labelsHidden()
+                        }
+                    }
+                    Divider().padding(.leading, 16)
                     groupedRow {
                         HStack {
                             Text("Modifier")
@@ -46,14 +55,6 @@ struct KeyBindingDetailView: View {
                             }
                             .labelsHidden()
                             .fixedSize()
-                        }
-                    }
-                    Divider().padding(.leading, 16)
-                    groupedRow {
-                        HStack {
-                            Text("Position: \(binding.position.displayName)")
-                                .foregroundStyle(.secondary)
-                            Spacer()
                         }
                     }
                 }

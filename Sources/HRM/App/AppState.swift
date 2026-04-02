@@ -45,6 +45,7 @@ final class AppState: ObservableObject {
             forName: .init("com.apple.Carbon.TISNotifySelectedKeyboardInputSourceChanged"),
             object: nil, queue: .main
         ) { [weak self] _ in
+            KeyCodeLabel.invalidateCache()
             Task { @MainActor in
                 self?.objectWillChange.send()
             }

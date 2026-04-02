@@ -1,9 +1,23 @@
 import Carbon.HIToolbox
 
 enum KeyCodeLabel {
-    /// Returns a human-readable label for a given keycode.
-    /// Uses the current keyboard layout to translate keycodes to characters.
+    private static var cache: [UInt16: String] = [:]
+
+    static func invalidateCache() {
+        cache.removeAll()
+    }
+
     static func label(for keyCode: UInt16) -> String {
+        if let cached = cache[keyCode] {
+            return cached
+        }
+
+        let result = translate(keyCode: keyCode)
+        cache[keyCode] = result
+        return result
+    }
+
+    private static func translate(keyCode: UInt16) -> String {
         let primarySource = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue()
         let asciiSource = TISCopyCurrentASCIICapableKeyboardInputSource()?.takeRetainedValue()
         let source = [primarySource, asciiSource].compactMap { $0 }.first {

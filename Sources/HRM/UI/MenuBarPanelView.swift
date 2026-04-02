@@ -32,6 +32,7 @@ struct MenuBarPanelView: View {
             }
         }
         .frame(width: 400)
+        .onAppear { appState.checkAccessibility() }
         .onDisappear { selectedKeyIndex = nil }
     }
 

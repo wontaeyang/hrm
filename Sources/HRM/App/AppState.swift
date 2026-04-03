@@ -1,18 +1,18 @@
+import Combine
 import SwiftUI
 
 @MainActor
-@Observable
-final class AppState {
-    var configuration: Configuration
-    var isAccessibilityGranted = false
-    var availableUpdate: String?
-    private(set) var keyboardLayoutVersion = 0
+final class AppState: ObservableObject {
+    @Published var configuration: Configuration
+    @Published var isAccessibilityGranted = false
+    @Published var availableUpdate: String?
+    @Published private(set) var keyboardLayoutVersion = 0
 
     private let store = ConfigurationStore()
     private var engine: TapHoldEngine
     private var eventTapManager: EventTapManager?
     private var hasLaunched = false
-    @ObservationIgnored nonisolated(unsafe) private var inputSourceObserver: Any?
+    private var inputSourceObserver: Any?
 
     var isEnabled: Bool {
         get { configuration.enabled }

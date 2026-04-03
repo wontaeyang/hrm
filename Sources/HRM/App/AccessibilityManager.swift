@@ -11,7 +11,7 @@ enum AccessibilityManager {
         AXIsProcessTrustedWithOptions(options)
     }
 
-    static func ensureAccessibility(completion: @escaping @Sendable (Bool) -> Void) {
+    static func ensureAccessibility(completion: @escaping (Bool) -> Void) {
         if isTrusted {
             completion(true)
             return

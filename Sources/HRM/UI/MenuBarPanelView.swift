@@ -2,7 +2,7 @@ import ServiceManagement
 import SwiftUI
 
 struct MenuBarPanelView: View {
-    var appState: AppState
+    @ObservedObject var appState: AppState
     @State private var selectedKeyIndex: Int?
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 

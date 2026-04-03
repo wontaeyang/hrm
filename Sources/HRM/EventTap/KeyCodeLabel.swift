@@ -20,9 +20,12 @@ enum KeyCodeLabel {
 
     private static func translate(keyCode: UInt16) -> String {
         let primarySource = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue()
-        let asciiSource = TISCopyCurrentASCIICapableKeyboardInputSource()?.takeRetainedValue()
-        let source = [primarySource, asciiSource].compactMap { $0 }.first {
-            TISGetInputSourceProperty($0, kTISPropertyUnicodeKeyLayoutData) != nil
+        let source: TISInputSource? = if let primarySource,
+            TISGetInputSourceProperty(primarySource, kTISPropertyUnicodeKeyLayoutData) != nil
+        {
+            primarySource
+        } else {
+            qwertySource()
         }
 
         guard let source else {
@@ -56,5 +59,11 @@ enum KeyCodeLabel {
         }
 
         return String(format: "0x%02X", keyCode)
+    }
+
+    private static func qwertySource() -> TISInputSource? {
+        let filter = [kTISPropertyInputSourceID: "com.apple.keylayout.US"] as CFDictionary
+        let sources = TISCreateInputSourceList(filter, false)?.takeRetainedValue() as? [TISInputSource]
+        return sources?.first
     }
 }

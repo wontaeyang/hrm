@@ -1,16 +1,18 @@
 import SwiftUI
 
 @MainActor
-final class AppState: ObservableObject {
-    @Published var configuration: Configuration
-    @Published var isAccessibilityGranted = false
-    @Published var availableUpdate: String?
+@Observable
+final class AppState {
+    var configuration: Configuration
+    var isAccessibilityGranted = false
+    var availableUpdate: String?
+    private(set) var keyboardLayoutVersion = 0
 
     private let store = ConfigurationStore()
     private var engine: TapHoldEngine
     private var eventTapManager: EventTapManager?
     private var hasLaunched = false
-    nonisolated(unsafe) private var inputSourceObserver: Any?
+    @ObservationIgnored nonisolated(unsafe) private var inputSourceObserver: Any?
 
     var isEnabled: Bool {
         get { configuration.enabled }
@@ -46,7 +48,7 @@ final class AppState: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor in
                 KeyCodeLabel.invalidateCache()
-                self?.objectWillChange.send()
+                self?.keyboardLayoutVersion += 1
             }
         }
 

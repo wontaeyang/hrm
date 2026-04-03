@@ -3,7 +3,7 @@ import SwiftUI
 @main
 struct HRMApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @StateObject private var appState: AppState
+    @State private var appState = AppState()
 
     var body: some Scene {
         MenuBarExtra {
@@ -12,10 +12,5 @@ struct HRMApp: App {
             Image(systemName: appState.isEnabled ? "keyboard.fill" : "keyboard")
         }
         .menuBarExtraStyle(.window)
-    }
-
-    init() {
-        let state = AppState()
-        _appState = StateObject(wrappedValue: state)
     }
 }

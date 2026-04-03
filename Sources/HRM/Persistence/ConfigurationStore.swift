@@ -5,12 +5,12 @@ final class ConfigurationStore {
 
     init(directory: URL? = nil) {
         let dir = directory ?? Self.defaultDirectory
-        self.fileURL = dir.appendingPathComponent("config.json")
+        self.fileURL = dir.appending(component: "config.json")
     }
 
     static var defaultDirectory: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return appSupport.appendingPathComponent("HRM")
+        return appSupport.appending(component: "HRM")
     }
 
     func load() -> Configuration {

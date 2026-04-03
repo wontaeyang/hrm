@@ -2,7 +2,7 @@ import ServiceManagement
 import SwiftUI
 
 struct MenuBarPanelView: View {
-    @ObservedObject var appState: AppState
+    var appState: AppState
     @State private var selectedKeyIndex: Int?
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
@@ -113,6 +113,7 @@ struct MenuBarPanelView: View {
         KeyboardRowView(bindings: appState.configuration.keyBindings) { index in
             selectedKeyIndex = index
         }
+        .id(appState.keyboardLayoutVersion)
     }
 
     // MARK: - Settings Section

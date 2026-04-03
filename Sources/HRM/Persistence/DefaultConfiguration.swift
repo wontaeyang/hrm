@@ -5,7 +5,7 @@ enum DefaultConfiguration {
             quickTapTermMs: 150,
             requirePriorIdleMs: 150,
             bilateralFiltering: true,
-            holdTriggerOnRelease: false,
+            holdTriggerOnRelease: true,
             keyBindings: defaultKeyBindings
         )
     }

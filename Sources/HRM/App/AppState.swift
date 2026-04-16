@@ -8,11 +8,13 @@ final class AppState: ObservableObject {
     @Published var availableUpdate: String?
     @Published private(set) var keyboardLayoutVersion = 0
 
+    let keyboardMonitor = KeyboardMonitor()
     private let store = ConfigurationStore()
     private var engine: TapHoldEngine
     private var eventTapManager: EventTapManager?
     private var hasLaunched = false
     private var inputSourceObserver: Any?
+    private var monitorCancellable: AnyCancellable?
 
     var isEnabled: Bool {
         get { configuration.enabled }
@@ -26,6 +28,10 @@ final class AppState: ObservableObject {
         let config = store.load()
         self.configuration = config
         self.engine = TapHoldEngine(config: config)
+
+        monitorCancellable = keyboardMonitor.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
 
         // Defer startup to after SwiftUI scene is ready
         Task { @MainActor [weak self] in
@@ -63,6 +69,8 @@ final class AppState: ObservableObject {
     func startEventTap() {
         guard eventTapManager == nil else { return }
         let manager = EventTapManager(engine: engine)
+        manager.keyboardMonitor = keyboardMonitor
+        manager.setSelectedKeyboard(configuration.selectedKeyboard)
         self.eventTapManager = manager
         if configuration.enabled {
             manager.start()
@@ -77,6 +85,7 @@ final class AppState: ObservableObject {
     func saveAndApply() {
         try? store.save(configuration)
         engine.updateConfig(configuration)
+        eventTapManager?.setSelectedKeyboard(configuration.selectedKeyboard)
 
         if configuration.enabled {
             if eventTapManager?.isRunning == false {

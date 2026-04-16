@@ -13,6 +13,10 @@ final class EventTapManager: TapHoldEngineDelegate {
     private(set) var suppressedKeyCodes: Set<UInt16> = []
 
     private(set) var isRunning = false
+    /// Monitor that discovers keyboards from the event stream.
+    weak var keyboardMonitor: KeyboardMonitor?
+    /// Keyboard type to filter for, or -1 for all keyboards.
+    private var _selectedKeyboardType: Int = -1
 
     init(engine: TapHoldEngine) {
         self.engine = engine
@@ -54,6 +58,18 @@ final class EventTapManager: TapHoldEngineDelegate {
     func updateEngine(_ engine: TapHoldEngine) {
         self.engine = engine
         engine.delegate = self
+    }
+
+    func setSelectedKeyboard(_ keyboard: KeyboardDevice?) {
+        _selectedKeyboardType = keyboard?.keyboardType ?? -1
+    }
+
+    func shouldFilterEvent(_ event: CGEvent) -> Bool {
+        let keyboardType = Int(event.getIntegerValueField(.keyboardEventKeyboardType))
+        keyboardMonitor?.recordKeyboardType(keyboardType)
+        let selected = _selectedKeyboardType
+        guard selected >= 0 else { return false }
+        return keyboardType != selected
     }
 
     // MARK: - Event Processing (called from C callback)

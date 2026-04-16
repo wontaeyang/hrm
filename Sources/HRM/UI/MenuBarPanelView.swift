@@ -143,6 +143,20 @@ struct MenuBarPanelView: View {
             .disabled(!appState.configuration.bilateralFiltering)
             msStepper("Quick Tap Term", value: quickTapTermBinding)
             msStepper("Require Prior Idle", value: requirePriorIdleBinding)
+            HStack {
+                Text("Keyboard")
+                    .font(.body)
+                Spacer()
+                Picker("", selection: selectedKeyboardBinding) {
+                    Text("All Keyboards").tag(Int?.none)
+                    ForEach(appState.keyboardMonitor.discoveredKeyboards) { keyboard in
+                        Text(keyboard.name).tag(Int?.some(keyboard.keyboardType))
+                    }
+                }
+                .pickerStyle(.menu)
+                .frame(maxWidth: 200)
+                .labelsHidden()
+            }
         }
     }
 
@@ -233,6 +247,22 @@ struct MenuBarPanelView: View {
             get: { appState.configuration.quickTapTermMs },
             set: {
                 appState.configuration.quickTapTermMs = $0
+                appState.saveAndApply()
+            }
+        )
+    }
+
+    private var selectedKeyboardBinding: Binding<Int?> {
+        Binding(
+            get: { appState.configuration.selectedKeyboard?.keyboardType },
+            set: { newType in
+                if let type = newType,
+                   let device = appState.keyboardMonitor.discoveredKeyboards.first(where: { $0.keyboardType == type })
+                {
+                    appState.configuration.selectedKeyboard = device
+                } else {
+                    appState.configuration.selectedKeyboard = nil
+                }
                 appState.saveAndApply()
             }
         )

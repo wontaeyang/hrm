@@ -14,6 +14,17 @@ final class EventTapManager: TapHoldEngineDelegate {
 
     private(set) var isRunning = false
 
+    /// Whether Caps Lock → Backspace remap is active.
+    private var _remapCapsLockToBackspace: Bool = false
+    /// Tracks whether Caps Lock (remapped to F18) is physically held for auto-repeat.
+    private var capsLockDown = false
+    private var capsLockRepeatTimer: DispatchSourceTimer?
+
+    // Caps Lock is remapped to F18 via hidutil at the HID level.
+    // F18 CGEvent keycode = 79 (0x4F).
+    private static let f18KeyCode: UInt16 = 0x4F
+    private static let backspaceKeyCode: UInt16 = 0x33
+
     init(engine: TapHoldEngine) {
         self.engine = engine
         engine.delegate = self
@@ -21,6 +32,10 @@ final class EventTapManager: TapHoldEngineDelegate {
 
     func start() {
         guard !isRunning else { return }
+
+        if _remapCapsLockToBackspace {
+            Self.applyCapsLockHidutilMapping()
+        }
 
         tapThread = Thread { [weak self] in
             self?.runEventTapLoop()
@@ -33,6 +48,10 @@ final class EventTapManager: TapHoldEngineDelegate {
     func stop() {
         guard isRunning else { return }
         isRunning = false
+        stopCapsLockRepeat()
+        if _remapCapsLockToBackspace {
+            Self.removeCapsLockHidutilMapping()
+        }
 
         if let tap = eventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
@@ -56,6 +75,18 @@ final class EventTapManager: TapHoldEngineDelegate {
         engine.delegate = self
     }
 
+    func setRemapCapsLockToBackspace(_ enabled: Bool) {
+        let wasEnabled = _remapCapsLockToBackspace
+        _remapCapsLockToBackspace = enabled
+        if enabled && !wasEnabled {
+            Self.applyCapsLockHidutilMapping()
+        } else if !enabled && wasEnabled {
+            stopCapsLockRepeat()
+            capsLockDown = false
+            Self.removeCapsLockHidutilMapping()
+        }
+    }
+
     // MARK: - Event Processing (called from C callback)
 
     func processEvent(
@@ -69,8 +100,24 @@ final class EventTapManager: TapHoldEngineDelegate {
         let result: TapHoldEngine.EventResult
 
         if type == .keyDown {
+            // F18 (remapped Caps Lock) → Backspace
+            if keyCode == Self.f18KeyCode && _remapCapsLockToBackspace {
+                if !capsLockDown {
+                    capsLockDown = true
+                    synthesizer.postKeyDown(keyCode: Self.backspaceKeyCode, flags: currentModifierFlags)
+                    startCapsLockRepeat()
+                }
+                return nil
+            }
             result = engine.handleKeyDown(keyCode: keyCode, event: event, timestamp: timestamp)
         } else if type == .keyUp {
+            // F18 (remapped Caps Lock) → Backspace release
+            if keyCode == Self.f18KeyCode && _remapCapsLockToBackspace {
+                capsLockDown = false
+                stopCapsLockRepeat()
+                synthesizer.postKeyUp(keyCode: Self.backspaceKeyCode, flags: currentModifierFlags)
+                return nil
+            }
             result = engine.handleKeyUp(keyCode: keyCode, event: event, timestamp: timestamp)
         } else {
             // flagsChanged — pass through
@@ -129,6 +176,60 @@ final class EventTapManager: TapHoldEngineDelegate {
             }
             synthesizer.postEvent(buffered.event)
         }
+    }
+
+    // MARK: - Caps Lock Repeat
+
+    private func startCapsLockRepeat() {
+        stopCapsLockRepeat()
+        let initialTicks = UserDefaults.standard.integer(forKey: "InitialKeyRepeat")
+        let repeatTicks = UserDefaults.standard.integer(forKey: "KeyRepeat")
+        let initialDelay = Double(initialTicks > 0 ? initialTicks : 25) * 0.015
+        let repeatInterval = Double(repeatTicks > 0 ? repeatTicks : 6) * 0.015
+
+        let timer = DispatchSource.makeTimerSource(queue: .global(qos: .userInteractive))
+        timer.schedule(deadline: .now() + initialDelay, repeating: repeatInterval)
+        timer.setEventHandler { [weak self] in
+            guard let self, self.capsLockDown else { return }
+            self.synthesizer.postKeyDown(keyCode: Self.backspaceKeyCode, flags: self.currentModifierFlags)
+        }
+        timer.resume()
+        capsLockRepeatTimer = timer
+    }
+
+    private func stopCapsLockRepeat() {
+        capsLockRepeatTimer?.cancel()
+        capsLockRepeatTimer = nil
+    }
+
+    // MARK: - hidutil Caps Lock Mapping
+
+    /// Remap Caps Lock → F18 at the HID level using hidutil.
+    private static func applyCapsLockHidutilMapping() {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/hidutil")
+        process.arguments = [
+            "property", "--set",
+            """
+            {"UserKeyMapping":[{"HIDKeyboardModifierMappingSrc":0x700000039,"HIDKeyboardModifierMappingDst":0x70000006D}]}
+            """,
+        ]
+        try? process.run()
+        process.waitUntilExit()
+    }
+
+    /// Remove the Caps Lock → F18 mapping, restoring default behavior.
+    private static func removeCapsLockHidutilMapping() {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/hidutil")
+        process.arguments = [
+            "property", "--set",
+            """
+            {"UserKeyMapping":[]}
+            """,
+        ]
+        try? process.run()
+        process.waitUntilExit()
     }
 
     // MARK: - Private

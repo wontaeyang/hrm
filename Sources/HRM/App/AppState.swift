@@ -63,6 +63,7 @@ final class AppState: ObservableObject {
     func startEventTap() {
         guard eventTapManager == nil else { return }
         let manager = EventTapManager(engine: engine)
+        manager.setRemapCapsLockToBackspace(configuration.remapCapsLockToBackspace)
         self.eventTapManager = manager
         if configuration.enabled {
             manager.start()
@@ -77,6 +78,7 @@ final class AppState: ObservableObject {
     func saveAndApply() {
         try? store.save(configuration)
         engine.updateConfig(configuration)
+        eventTapManager?.setRemapCapsLockToBackspace(configuration.remapCapsLockToBackspace)
 
         if configuration.enabled {
             if eventTapManager?.isRunning == false {

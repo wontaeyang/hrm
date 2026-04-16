@@ -125,6 +125,8 @@ struct MenuBarPanelView: View {
 
             settingToggle("Launch at Login", isOn: launchAtLoginBinding)
 
+            settingToggle("Caps Lock → Backspace", isOn: capsLockRemapBinding)
+
             settingToggle("Bilateral Filtering", isOn: bilateralFilteringBinding)
 
             HStack {
@@ -195,6 +197,16 @@ struct MenuBarPanelView: View {
     }
 
     // MARK: - Bindings
+
+    private var capsLockRemapBinding: Binding<Bool> {
+        Binding(
+            get: { appState.configuration.remapCapsLockToBackspace },
+            set: {
+                appState.configuration.remapCapsLockToBackspace = $0
+                appState.saveAndApply()
+            }
+        )
+    }
 
     private var launchAtLoginBinding: Binding<Bool> {
         Binding(

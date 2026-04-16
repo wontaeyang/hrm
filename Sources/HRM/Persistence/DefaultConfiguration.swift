@@ -6,7 +6,8 @@ enum DefaultConfiguration {
             requirePriorIdleMs: 150,
             bilateralFiltering: true,
             holdTriggerOnRelease: true,
-            keyBindings: defaultKeyBindings
+            keyBindings: defaultKeyBindings,
+            remapCapsLockToBackspace: false
         )
     }
 

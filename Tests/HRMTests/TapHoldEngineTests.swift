@@ -18,15 +18,15 @@ final class TestEngineDelegate: TapHoldEngineDelegate {
 
     func engineDidResolveHold(binding: KeyBinding) {
         holds.append(binding)
-        actionLog.append(.hold(binding.label))
+        actionLog.append(.hold(binding.position.rawValue))
     }
     func engineDidResolveHoldRelease(binding: KeyBinding) {
         holdReleases.append(binding)
-        actionLog.append(.holdRelease(binding.label))
+        actionLog.append(.holdRelease(binding.position.rawValue))
     }
     func engineDidResolveTap(binding: KeyBinding) {
         taps.append(binding)
-        actionLog.append(.tap(binding.label))
+        actionLog.append(.tap(binding.position.rawValue))
     }
     func engineShouldFlushBufferedEvents(_ events: [BufferedEvent]) { flushedEvents.append(events) }
 
@@ -80,7 +80,7 @@ struct TapHoldEngineTests {
         let result2 = engine.handleKeyUp(keyCode: keyA, event: upEvent, timestamp: 1.100)
         #expect(result2 == .suppress)  // synthetic tap already emitted
         #expect(delegate.taps.count == 1)
-        #expect(delegate.taps[0].label == "A")
+        #expect(delegate.taps[0].position == .leftPinky)
     }
 
     // MARK: - Non-mod-tap key passthrough
@@ -139,13 +139,13 @@ struct TapHoldEngineTests {
         let aUp = makeCGEvent(keyCode: keyA, keyDown: false)
         _ = engine.handleKeyUp(keyCode: keyA, event: aUp, timestamp: 1.060)
         #expect(delegate.taps.count >= 1)
-        #expect(delegate.taps[0].label == "A")
+        #expect(delegate.taps[0].position == .leftPinky)
 
         // S↑ — S was undecided, released quickly → tap
         let sUp = makeCGEvent(keyCode: keyS, keyDown: false)
         _ = engine.handleKeyUp(keyCode: keyS, event: sUp, timestamp: 1.090)
         #expect(delegate.taps.count >= 2)
-        #expect(delegate.taps[1].label == "S")
+        #expect(delegate.taps[1].position == .leftRing)
     }
 
     // MARK: - Require prior idle passthrough (no double character)
@@ -296,17 +296,17 @@ struct TapHoldEngineTests {
         _ = engine.handleKeyUp(keyCode: keyD, event: dUp, timestamp: 1.080)
 
         #expect(delegate.holds.count == 1)
-        #expect(delegate.holds[0].label == "F")
+        #expect(delegate.holds[0].position == .leftIndex)
         #expect(delegate.taps.count == 1)
-        #expect(delegate.taps[0].label == "D")
+        #expect(delegate.taps[0].position == .leftMiddle)
         // Verify ordering: hold(F) must come before tap(D)
-        #expect(delegate.actionLog == [.hold("F"), .tap("D")])
+        #expect(delegate.actionLog == [.hold("leftIndex"), .tap("leftMiddle")])
 
         // F↑ — hold release
         let fUp = makeCGEvent(keyCode: keyF, keyDown: false)
         _ = engine.handleKeyUp(keyCode: keyF, event: fUp, timestamp: 1.200)
         #expect(delegate.holdReleases.count == 1)
-        #expect(delegate.holdReleases[0].label == "F")
+        #expect(delegate.holdReleases[0].position == .leftIndex)
     }
 
     // MARK: - Require prior idle does not bypass undecided modifier
@@ -341,11 +341,11 @@ struct TapHoldEngineTests {
         _ = engine.handleKeyUp(keyCode: keyA, event: aUp, timestamp: 1.280)
 
         #expect(delegate.holds.count == 1)
-        #expect(delegate.holds[0].label == "J")
+        #expect(delegate.holds[0].position == .rightIndex)
         #expect(delegate.taps.count == 1)
-        #expect(delegate.taps[0].label == "A")
+        #expect(delegate.taps[0].position == .leftPinky)
         // Verify ordering: hold(J) before tap(A)
-        #expect(delegate.actionLog == [.hold("J"), .tap("A")])
+        #expect(delegate.actionLog == [.hold("rightIndex"), .tap("leftPinky")])
     }
 
     // MARK: - Config update

@@ -49,6 +49,10 @@ G and H are disabled by default. Each key's modifier assignment can be changed o
 
 ## Features
 
+### Layout Detection
+
+Key labels update automatically based on the active macOS input source, so the panel displays the correct characters for any keyboard layout supported by macOS — such as AZERTY, Colemak, or Dvorak.
+
 ### Bilateral Filtering
 
 Only triggers a hold when the other key is on the **opposite hand**. This prevents the most common misfire — fast same-hand rolls like "as" or "df" being misinterpreted as modifier combos.
@@ -62,8 +66,8 @@ Enabled by default. Can be toggled globally or overridden per key.
 
 Controls **when** the bilateral hand check happens during a hold:
 
-- **Key Down** (default) — checks the hand immediately when the other key is pressed. Same-hand keys are rejected instantly and resolve as a tap.
-- **Key Up** — waits until the other key is released before checking. This allows combining multiple modifiers on the same hand (e.g., holding `A` + `S` for Control+Option) but adds slight latency to same-hand typing.
+- **Key Up** (default) — waits until the other key is released before checking. This allows combining multiple modifiers on the same hand (e.g., holding `A` + `S` for Control+Option) but adds slight latency to same-hand typing.
+- **Key Down** — checks the hand immediately when the other key is pressed. Same-hand keys are rejected instantly and resolve as a tap.
 
 Only applies when Bilateral Filtering is enabled.
 

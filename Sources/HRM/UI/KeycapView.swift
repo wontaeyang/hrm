@@ -15,32 +15,34 @@ struct KeycapView: View {
     }
 
     var body: some View {
-        VStack(spacing: 1) {
-            Text(binding.label)
-                .font(.system(size: 13, weight: .medium, design: .rounded))
-
-            Text(binding.enabled ? (binding.modifier?.symbol ?? "--") : "--")
-                .font(.system(size: 10))
-                .foregroundStyle(isDisabled ? .secondary : modifierColor)
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 36)
-        .background(
-            RoundedRectangle(cornerRadius: 5)
-                .fill(modifierColor.opacity(isDisabled ? 0.1 : (isHovered ? 0.3 : 0.2)))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 5)
-                .stroke(modifierColor.opacity(isDisabled ? 0.15 : 0.4), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(isHovered ? 0.15 : 0), radius: 2, y: 1)
-        .scaleEffect(isHovered ? 1.05 : 1.0)
-        .animation(.easeInOut(duration: 0.15), value: isHovered)
-        .onHover { hovering in
-            isHovered = hovering
-        }
-        .onTapGesture {
+        Button {
             onTap()
+        } label: {
+            VStack(spacing: 1) {
+                Text(KeyCodeLabel.label(for: binding.keyCode))
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+
+                Text(binding.enabled ? (binding.modifier?.symbol ?? "--") : "--")
+                    .font(.system(size: 10))
+                    .foregroundStyle(isDisabled ? .secondary : modifierColor)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 36)
+            .background(
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(modifierColor.opacity(isDisabled ? 0.1 : (isHovered ? 0.3 : 0.2)))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 5)
+                    .stroke(modifierColor.opacity(isDisabled ? 0.15 : 0.4), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(isHovered ? 0.15 : 0), radius: 2, y: 1)
+            .scaleEffect(isHovered ? 1.05 : 1.0)
+            .animation(.easeInOut(duration: 0.15), value: isHovered)
+            .onHover { hovering in
+                isHovered = hovering
+            }
         }
+        .buttonStyle(.plain)
     }
 }

@@ -1,16 +1,18 @@
-import SwiftUI
 import Combine
+import SwiftUI
 
 @MainActor
 final class AppState: ObservableObject {
     @Published var configuration: Configuration
     @Published var isAccessibilityGranted = false
     @Published var availableUpdate: String?
+    @Published private(set) var keyboardLayoutVersion = 0
 
     private let store = ConfigurationStore()
     private var engine: TapHoldEngine
     private var eventTapManager: EventTapManager?
     private var hasLaunched = false
+    private var inputSourceObserver: Any?
 
     var isEnabled: Bool {
         get { configuration.enabled }
@@ -38,6 +40,16 @@ final class AppState: ObservableObject {
         Task { [weak self] in
             let update = await UpdateChecker.check()
             self?.availableUpdate = update
+        }
+
+        inputSourceObserver = DistributedNotificationCenter.default().addObserver(
+            forName: .init("com.apple.Carbon.TISNotifySelectedKeyboardInputSourceChanged"),
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                KeyCodeLabel.invalidateCache()
+                self?.keyboardLayoutVersion += 1
+            }
         }
 
         checkAccessibility()
@@ -77,6 +89,12 @@ final class AppState: ObservableObject {
 
     func checkAccessibility() {
         isAccessibilityGranted = AccessibilityManager.isTrusted
+    }
+
+    deinit {
+        if let observer = inputSourceObserver {
+            DistributedNotificationCenter.default().removeObserver(observer)
+        }
     }
 
     func requestAccessibility() {

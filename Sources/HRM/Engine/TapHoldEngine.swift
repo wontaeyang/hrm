@@ -13,7 +13,6 @@ final class TapHoldEngine {
     private var buffer = EventBuffer()
     private var config: Configuration
     private var passedThroughKeys: Set<UInt16> = []
-
     weak var delegate: TapHoldEngineDelegate?
 
     init(config: Configuration) {

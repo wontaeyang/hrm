@@ -7,29 +7,33 @@ struct MenuBarPanelView: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                header
-                if let version = appState.availableUpdate {
-                    updateBanner(version: version)
-                }
-                Divider()
-                scrollContent
-                Divider()
-                footer
-            }
-            .navigationDestination(for: Int.self) { index in
+        Group {
+            if let index = selectedKeyIndex {
                 KeyBindingDetailView(
                     binding: Binding(
                         get: { appState.configuration.keyBindings[index] },
                         set: { appState.configuration.keyBindings[index] = $0 }
                     ),
                     config: appState.configuration,
-                    onChanged: { appState.saveAndApply() }
+                    onChanged: { appState.saveAndApply() },
+                    onDismiss: { selectedKeyIndex = nil }
                 )
+            } else {
+                VStack(spacing: 0) {
+                    header
+                    if let version = appState.availableUpdate {
+                        updateBanner(version: version)
+                    }
+                    Divider()
+                    content
+                    Divider()
+                    footer
+                }
             }
         }
         .frame(width: 400)
+        .onAppear { appState.checkAccessibility() }
+        .onDisappear { selectedKeyIndex = nil }
     }
 
     // MARK: - Header
@@ -49,8 +53,12 @@ struct MenuBarPanelView: View {
             }
 
             if !appState.isAccessibilityGranted {
-                Button("Grant Accessibility Permission") {
+                Button {
                     appState.requestAccessibility()
+                } label: {
+                    Text("Grant Accessibility Permission")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 2)
                 }
                 .controlSize(.small)
             }
@@ -62,35 +70,41 @@ struct MenuBarPanelView: View {
     // MARK: - Update Banner
 
     private func updateBanner(version: String) -> some View {
-        HStack {
-            Text("Version \(version) available")
-                .font(.body)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Button("Download") {
-                if let url = URL(string: "https://github.com/wontaeyang/hrm/releases/latest") {
-                    NSWorkspace.shared.open(url)
+        VStack(spacing: 4) {
+            HStack {
+                Text("Version \(version) available")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Download") {
+                    if let url = URL(string: "https://github.com/wontaeyang/hrm/releases/latest") {
+                        NSWorkspace.shared.open(url)
+                    }
                 }
+                .buttonStyle(.link)
+                .font(.body)
             }
-            .buttonStyle(.link)
-            .font(.body)
+            HStack {
+                Text("Homebrew: brew upgrade hrm")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                Spacer()
+            }
         }
         .padding(.horizontal)
         .padding(.vertical, 6)
         .background(.quaternary)
     }
 
-    // MARK: - Scroll Content
+    // MARK: - Content
 
-    private var scrollContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                keyboardSection
-                Divider()
-                settingsSection
-            }
-            .padding()
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            keyboardSection
+            Divider()
+            settingsSection
         }
+        .padding()
     }
 
     // MARK: - Keyboard Section
@@ -99,16 +113,7 @@ struct MenuBarPanelView: View {
         KeyboardRowView(bindings: appState.configuration.keyBindings) { index in
             selectedKeyIndex = index
         }
-        .navigationDestination(item: $selectedKeyIndex) { index in
-            KeyBindingDetailView(
-                binding: Binding(
-                    get: { appState.configuration.keyBindings[index] },
-                    set: { appState.configuration.keyBindings[index] = $0 }
-                ),
-                config: appState.configuration,
-                onChanged: { appState.saveAndApply() }
-            )
-        }
+        .id(appState.keyboardLayoutVersion)
     }
 
     // MARK: - Settings Section

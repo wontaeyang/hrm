@@ -125,6 +125,8 @@ struct MenuBarPanelView: View {
 
             settingToggle("Launch at Login", isOn: launchAtLoginBinding)
 
+            settingToggle("Space Navigation (hjkl → Arrows)", isOn: spaceNavigationBinding)
+
             settingToggle("Bilateral Filtering", isOn: bilateralFilteringBinding)
 
             HStack {
@@ -195,6 +197,16 @@ struct MenuBarPanelView: View {
     }
 
     // MARK: - Bindings
+
+    private var spaceNavigationBinding: Binding<Bool> {
+        Binding(
+            get: { appState.configuration.spaceNavigation },
+            set: {
+                appState.configuration.spaceNavigation = $0
+                appState.saveAndApply()
+            }
+        )
+    }
 
     private var launchAtLoginBinding: Binding<Bool> {
         Binding(

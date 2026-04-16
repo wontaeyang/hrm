@@ -91,6 +91,14 @@ final class EventTapManager: TapHoldEngineDelegate {
                 suppressedKeyCodes.remove(keyCode)
             }
             return nil
+        case .remapToArrow(let arrowKeyCode):
+            let isDown = type == .keyDown
+            if isDown {
+                synthesizer.postKeyDown(keyCode: arrowKeyCode, flags: currentModifierFlags)
+            } else {
+                synthesizer.postKeyUp(keyCode: arrowKeyCode, flags: currentModifierFlags)
+            }
+            return nil
         }
     }
 
@@ -119,6 +127,19 @@ final class EventTapManager: TapHoldEngineDelegate {
     func engineDidResolveTap(binding: KeyBinding) {
         synthesizer.postKeyDown(keyCode: binding.keyCode, flags: currentModifierFlags)
         synthesizer.postKeyUp(keyCode: binding.keyCode, flags: currentModifierFlags)
+    }
+
+    func engineDidResolveSpaceNavHold() {
+        // Space layer activated — no modifier flags to set
+    }
+
+    func engineDidResolveSpaceNavRelease() {
+        // Space layer deactivated
+    }
+
+    func engineDidResolveSpaceNavTap() {
+        synthesizer.postKeyDown(keyCode: KeyCode.space, flags: currentModifierFlags)
+        synthesizer.postKeyUp(keyCode: KeyCode.space, flags: currentModifierFlags)
     }
 
     func engineShouldFlushBufferedEvents(_ events: [BufferedEvent]) {

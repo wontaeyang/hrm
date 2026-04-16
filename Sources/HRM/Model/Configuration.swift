@@ -5,6 +5,7 @@ struct Configuration: Codable, Equatable {
     var bilateralFiltering: Bool
     var holdTriggerOnRelease: Bool
     var keyBindings: [KeyBinding]
+    var spaceNavigation: Bool
 
     func effectiveQuickTapTerm(for binding: KeyBinding) -> Int {
         binding.quickTapTermMs ?? quickTapTermMs

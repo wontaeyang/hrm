@@ -6,6 +6,9 @@ protocol TapHoldEngineDelegate: AnyObject {
     func engineDidResolveHoldRelease(binding: KeyBinding)
     func engineDidResolveTap(binding: KeyBinding)
     func engineShouldFlushBufferedEvents(_ events: [BufferedEvent])
+    func engineDidResolveSpaceNavHold()
+    func engineDidResolveSpaceNavRelease()
+    func engineDidResolveSpaceNavTap()
 }
 
 final class TapHoldEngine {
@@ -13,6 +16,10 @@ final class TapHoldEngine {
     private var buffer = EventBuffer()
     private var config: Configuration
     private var passedThroughKeys: Set<UInt16> = []
+    private var spaceMachine: KeyStateMachine?
+
+    /// Whether Space Navigation layer is currently active (space held).
+    private(set) var spaceNavActive = false
     weak var delegate: TapHoldEngineDelegate?
 
     init(config: Configuration) {
@@ -30,6 +37,7 @@ final class TapHoldEngine {
     enum EventResult {
         case passThrough
         case suppress
+        case remapToArrow(UInt16)
     }
 
     /// Modifier flags that indicate a physical modifier key is held.
@@ -41,6 +49,24 @@ final class TapHoldEngine {
     var syntheticModifierFlags: CGEventFlags = []
 
     func handleKeyDown(keyCode: UInt16, event: CGEvent, timestamp: TimeInterval) -> EventResult {
+        // Space Navigation: space bar press
+        if keyCode == KeyCode.space, let sm = spaceMachine {
+            if passedThroughKeys.contains(keyCode) { return .passThrough }
+            if sm.isUndecided || sm.state == .hold { return .suppress }
+
+            let action = sm.onPress(at: timestamp)
+            if action == .resolvedTap {
+                passedThroughKeys.insert(keyCode)
+                return .passThrough
+            }
+            return .suppress
+        }
+
+        // Space Navigation: while space is held, remap hjkl to arrows
+        if spaceNavActive, let arrow = Self.spaceNavMapping[keyCode] {
+            return .remapToArrow(arrow)
+        }
+
         // If this is a configured mod-tap key
         if let machine = machines[keyCode] {
             // Key was passed through on press (quick-tap or require-prior-idle),
@@ -64,6 +90,7 @@ final class TapHoldEngine {
                 for (code, m) in machines where code != keyCode {
                     m.recordOtherEvent(at: timestamp)
                 }
+                spaceMachine?.recordOtherEvent(at: timestamp)
                 return .passThrough
             }
 
@@ -86,6 +113,13 @@ final class TapHoldEngine {
             // require-prior-idle chains correctly across mod-tap keys)
             for (code, m) in machines where code != keyCode {
                 m.recordOtherEvent(at: timestamp)
+            }
+            spaceMachine?.recordOtherEvent(at: timestamp)
+
+            // Notify space machine about this key
+            if let sm = spaceMachine, sm.isUndecided {
+                let spaceAction = sm.onOtherKeyDown(keyCode: keyCode, position: position, at: timestamp)
+                handleSpaceAction(spaceAction)
             }
 
             if action == .resolvedTap {
@@ -112,8 +146,19 @@ final class TapHoldEngine {
         for (_, m) in machines {
             m.recordOtherEvent(at: timestamp)
         }
+        spaceMachine?.recordOtherEvent(at: timestamp)
 
         let position = positionForKeyCode(keyCode)
+
+        // Notify space machine about other key presses
+        if let sm = spaceMachine, sm.isUndecided {
+            let spaceAction = sm.onOtherKeyDown(keyCode: keyCode, position: position, at: timestamp)
+            handleSpaceAction(spaceAction)
+
+            if spaceNavActive, let arrow = Self.spaceNavMapping[keyCode] {
+                return .remapToArrow(arrow)
+            }
+        }
 
         // Buffer the event BEFORE notifying machines. If the notification
         // resolves all undecided machines, the buffer (including this event)
@@ -152,6 +197,22 @@ final class TapHoldEngine {
     }
 
     func handleKeyUp(keyCode: UInt16, event: CGEvent, timestamp: TimeInterval) -> EventResult {
+        // Space Navigation: space bar release
+        if keyCode == KeyCode.space, let sm = spaceMachine {
+            if passedThroughKeys.remove(keyCode) != nil {
+                _ = sm.onRelease(at: timestamp)
+                return .passThrough
+            }
+            let action = sm.onRelease(at: timestamp)
+            handleSpaceAction(action)
+            return .suppress
+        }
+
+        // Space Navigation: while space is held, remap hjkl key-up to arrow key-up
+        if spaceNavActive, let arrow = Self.spaceNavMapping[keyCode] {
+            return .remapToArrow(arrow)
+        }
+
         if let machine = machines[keyCode] {
             // Key was passed through on press (require-prior-idle / quick-tap),
             // pass through release too without synthesizing
@@ -178,6 +239,12 @@ final class TapHoldEngine {
                 }
             }
 
+            // Notify space machine about key releases
+            if let sm = spaceMachine, sm.isUndecided {
+                let spaceAction = sm.onOtherKeyUp(keyCode: keyCode, position: position, at: timestamp)
+                handleSpaceAction(spaceAction)
+            }
+
             handleAction(action, machine: machine)
 
             if !anyMachineUndecided && !buffer.isEmpty {
@@ -189,6 +256,12 @@ final class TapHoldEngine {
 
         // Non-mod-tap key up
         let position = positionForKeyCode(keyCode)
+
+        // Notify space machine about key releases
+        if let sm = spaceMachine, sm.isUndecided {
+            let spaceAction = sm.onOtherKeyUp(keyCode: keyCode, position: position, at: timestamp)
+            handleSpaceAction(spaceAction)
+        }
 
         // Buffer the keyUp BEFORE resolving holds — same reasoning as keyDown:
         // if resolution flushes the buffer, this keyUp is included in the
@@ -224,10 +297,41 @@ final class TapHoldEngine {
         return .passThrough
     }
 
+    // MARK: - Space Navigation
+
+    static let spaceNavMapping: [UInt16: UInt16] = [
+        KeyCode.h: KeyCode.leftArrow,
+        KeyCode.j: KeyCode.downArrow,
+        KeyCode.k: KeyCode.upArrow,
+        KeyCode.l: KeyCode.rightArrow,
+    ]
+
+    private func handleSpaceAction(_ action: KeyMachineAction) {
+        switch action {
+        case .resolvedHold:
+            spaceNavActive = true
+            delegate?.engineDidResolveSpaceNavHold()
+            if !anyMachineUndecided {
+                flushBuffer()
+            }
+        case .resolvedTap:
+            spaceNavActive = false
+            delegate?.engineDidResolveSpaceNavTap()
+            if !anyMachineUndecided {
+                flushBuffer()
+            }
+        case .holdRelease:
+            spaceNavActive = false
+            delegate?.engineDidResolveSpaceNavRelease()
+        case .none:
+            break
+        }
+    }
+
     // MARK: - Helpers
 
     private var anyMachineUndecided: Bool {
-        machines.values.contains { $0.isUndecided }
+        machines.values.contains { $0.isUndecided } || (spaceMachine?.isUndecided == true)
     }
 
     private func handleAction(_ action: KeyMachineAction, machine: KeyStateMachine) {
@@ -260,6 +364,25 @@ final class TapHoldEngine {
         machines.removeAll()
         for binding in config.keyBindings where binding.enabled && binding.modifier != nil {
             machines[binding.keyCode] = KeyStateMachine(binding: binding, config: config)
+        }
+
+        if config.spaceNavigation {
+            let spaceBinding = KeyBinding(
+                keyCode: KeyCode.space,
+                modifier: nil,
+                enabled: true,
+                position: .leftIndex
+            )
+            spaceMachine = KeyStateMachine(
+                binding: spaceBinding,
+                quickTapTerm: Double(config.quickTapTermMs) / 1000.0,
+                requirePriorIdle: Double(config.requirePriorIdleMs) / 1000.0,
+                holdTriggerPositions: nil,
+                holdTriggerOnRelease: false
+            )
+        } else {
+            spaceMachine = nil
+            spaceNavActive = false
         }
     }
 

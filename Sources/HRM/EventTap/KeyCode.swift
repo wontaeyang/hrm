@@ -12,4 +12,13 @@ enum KeyCode {
     static let k: UInt16 = UInt16(kVK_ANSI_K)         // 0x28
     static let l: UInt16 = UInt16(kVK_ANSI_L)         // 0x25
     static let semicolon: UInt16 = UInt16(kVK_ANSI_Semicolon) // 0x29
+
+    // Space
+    static let space: UInt16 = UInt16(kVK_Space)       // 0x31
+
+    // Arrow keys
+    static let leftArrow: UInt16 = UInt16(kVK_LeftArrow)   // 0x7B
+    static let downArrow: UInt16 = UInt16(kVK_DownArrow)   // 0x7D
+    static let upArrow: UInt16 = UInt16(kVK_UpArrow)       // 0x7E
+    static let rightArrow: UInt16 = UInt16(kVK_RightArrow) // 0x7C
 }

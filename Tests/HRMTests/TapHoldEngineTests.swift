@@ -123,6 +123,69 @@ struct TapHoldEngineTests {
 
     // MARK: - Key Rollover
 
+    @Test("Bilateral key-down forwards same-hand roll after resolved tap")
+    func bilateralKeyDownPreservesRollOrder() {
+        var config = DefaultConfiguration.make()
+        config.holdTriggerOnRelease = false
+        let (engine, delegate) = makeEngine(config: config)
+        let keyD: UInt16 = 0x02
+        let keyF: UInt16 = 0x03
+
+        _ = engine.handleKeyDown(
+            keyCode: keyD,
+            event: makeCGEvent(keyCode: keyD, keyDown: true),
+            timestamp: 1.000
+        )
+
+        let result = engine.handleKeyDown(
+            keyCode: keyF,
+            event: makeCGEvent(keyCode: keyF, keyDown: true),
+            timestamp: 1.030
+        )
+
+        #expect(result == .suppress)
+        #expect(delegate.actionLog == [.tap("leftMiddle")])
+
+        _ = engine.handleKeyUp(
+            keyCode: keyF,
+            event: makeCGEvent(keyCode: keyF, keyDown: false),
+            timestamp: 1.060
+        )
+
+        #expect(delegate.actionLog == [.tap("leftMiddle"), .tap("leftIndex")])
+    }
+
+    @Test("Bilateral key-up keeps reverse-release roll order")
+    func bilateralKeyUpPreservesReverseReleaseRollOrder() {
+        let (engine, delegate) = makeEngine(config: DefaultConfiguration.make())
+
+        _ = engine.handleKeyDown(
+            keyCode: keyA,
+            event: makeCGEvent(keyCode: keyA, keyDown: true),
+            timestamp: 1.000
+        )
+        _ = engine.handleKeyDown(
+            keyCode: keyS,
+            event: makeCGEvent(keyCode: keyS, keyDown: true),
+            timestamp: 1.030
+        )
+        _ = engine.handleKeyUp(
+            keyCode: keyS,
+            event: makeCGEvent(keyCode: keyS, keyDown: false),
+            timestamp: 1.060
+        )
+
+        #expect(delegate.taps.isEmpty)
+
+        _ = engine.handleKeyUp(
+            keyCode: keyA,
+            event: makeCGEvent(keyCode: keyA, keyDown: false),
+            timestamp: 1.090
+        )
+
+        #expect(delegate.actionLog == [.tap("leftPinky"), .tap("leftRing")])
+    }
+
     @Test("Fast key roll A↓ S↓ A↑ S↑ produces two taps")
     func keyRollover() {
         let (engine, delegate) = makeEngine()

@@ -13,6 +13,7 @@ final class TapHoldEngine {
     private var buffer = EventBuffer()
     private var config: Configuration
     private var passedThroughKeys: Set<UInt16> = []
+    private var pendingTaps: [(binding: KeyBinding, pressTimestamp: TimeInterval)] = []
     weak var delegate: TapHoldEngineDelegate?
 
     init(config: Configuration) {
@@ -72,9 +73,12 @@ final class TapHoldEngine {
             // mod-tap key (e.g. F/Shift) resolve as hold when another
             // mod-tap key (e.g. D) is pressed as a regular keystroke.
             let position = positionForKeyCode(keyCode)
+            var resolvedTapWhileHandlingKeyDown = false
             for (code, m) in machines where code != keyCode && m.isUndecided {
                 let otherAction = m.onOtherKeyDown(keyCode: keyCode, position: position, at: timestamp)
                 if otherAction != .none {
+                    resolvedTapWhileHandlingKeyDown = resolvedTapWhileHandlingKeyDown
+                        || otherAction == .resolvedTap
                     handleAction(otherAction, machine: m)
                 }
             }
@@ -94,6 +98,10 @@ final class TapHoldEngine {
                     // Don't pass through — force into undecided so the
                     // modifier can resolve before this key emits its tap.
                     machine.forceUndecided(at: timestamp)
+                    return .suppress
+                } else if resolvedTapWhileHandlingKeyDown {
+                    // Keep this key synthetic so it cannot overtake the tap
+                    // emitted while processing its key-down event.
                     return .suppress
                 } else {
                     // No undecided machines — safe to pass through
@@ -236,11 +244,18 @@ final class TapHoldEngine {
             break
         case .resolvedHold:
             delegate?.engineDidResolveHold(binding: machine.binding)
+            flushPendingTaps()
             if !anyMachineUndecided {
                 flushBuffer()
             }
         case .resolvedTap:
-            delegate?.engineDidResolveTap(binding: machine.binding)
+            pendingTaps.append((machine.binding, machine.pressTimestamp))
+            pendingTaps.sort {
+                $0.pressTimestamp == $1.pressTimestamp
+                    ? $0.binding.keyCode < $1.binding.keyCode
+                    : $0.pressTimestamp < $1.pressTimestamp
+            }
+            flushPendingTaps()
             if !anyMachineUndecided {
                 flushBuffer()
             }
@@ -253,6 +268,18 @@ final class TapHoldEngine {
         let events = buffer.drainAll()
         if !events.isEmpty {
             delegate?.engineShouldFlushBufferedEvents(events)
+        }
+    }
+
+    private func flushPendingTaps() {
+        while let nextTap = pendingTaps.first {
+            let hasEarlierUndecidedMachine = machines.values.contains {
+                $0.isUndecided && $0.pressTimestamp < nextTap.pressTimestamp
+            }
+            guard !hasEarlierUndecidedMachine else { return }
+
+            pendingTaps.removeFirst()
+            delegate?.engineDidResolveTap(binding: nextTap.binding)
         }
     }
 

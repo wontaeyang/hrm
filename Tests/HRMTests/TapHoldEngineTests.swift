@@ -1,5 +1,6 @@
-import Testing
 import CoreGraphics
+import Carbon.HIToolbox
+import Testing
 @testable import HRM
 
 // Test delegate that records all engine actions
@@ -119,6 +120,145 @@ struct TapHoldEngineTests {
         #expect(delegate.holds.count == 1)
         #expect(delegate.flushedEvents.count == 1)  // one flush call
         #expect(delegate.flushedEvents[0].count == 2)  // containing eDown + eUp
+    }
+
+    @Test("Bilateral key-up rejects an unbound same-hand key")
+    func bilateralKeyUpRejectsUnboundSameHandKey() {
+        let (engine, delegate) = makeEngine(config: DefaultConfiguration.make())
+
+        _ = engine.handleKeyDown(
+            keyCode: keyA,
+            event: makeCGEvent(keyCode: keyA, keyDown: true),
+            timestamp: 1.000
+        )
+        _ = engine.handleKeyDown(
+            keyCode: keyE,
+            event: makeCGEvent(keyCode: keyE, keyDown: true),
+            timestamp: 1.030
+        )
+        _ = engine.handleKeyUp(
+            keyCode: keyE,
+            event: makeCGEvent(keyCode: keyE, keyDown: false),
+            timestamp: 1.060
+        )
+        _ = engine.handleKeyUp(
+            keyCode: keyA,
+            event: makeCGEvent(keyCode: keyA, keyDown: false),
+            timestamp: 1.090
+        )
+
+        #expect(delegate.holds.isEmpty)
+        #expect(delegate.actionLog == [.tap("leftPinky")])
+        #expect(delegate.flushedEvents.count == 1)
+        #expect(delegate.flushedEvents[0].map(\.keyCode) == [keyE, keyE])
+    }
+
+    @Test("Bilateral key-down rejects an unbound same-hand key")
+    func bilateralKeyDownRejectsUnboundSameHandKey() {
+        var config = DefaultConfiguration.make()
+        config.holdTriggerOnRelease = false
+        let (engine, delegate) = makeEngine(config: config)
+
+        _ = engine.handleKeyDown(
+            keyCode: keyA,
+            event: makeCGEvent(keyCode: keyA, keyDown: true),
+            timestamp: 1.000
+        )
+        let result = engine.handleKeyDown(
+            keyCode: keyE,
+            event: makeCGEvent(keyCode: keyE, keyDown: true),
+            timestamp: 1.030
+        )
+
+        #expect(result == .suppress)
+        #expect(delegate.holds.isEmpty)
+        #expect(delegate.actionLog == [.tap("leftPinky")])
+        #expect(delegate.flushedEvents.count == 1)
+        #expect(delegate.flushedEvents[0].map(\.keyCode) == [keyE])
+    }
+
+    @Test("Bilateral filtering uses right-side arrows as shortcut triggers")
+    func bilateralFilteringUsesRightSideArrowsAsShortcutTriggers() {
+        let (engine, delegate) = makeEngine(config: DefaultConfiguration.make())
+        let leftArrow = UInt16(kVK_LeftArrow)
+
+        _ = engine.handleKeyDown(
+            keyCode: keyA,
+            event: makeCGEvent(keyCode: keyA, keyDown: true),
+            timestamp: 1.000
+        )
+        _ = engine.handleKeyDown(
+            keyCode: leftArrow,
+            event: makeCGEvent(keyCode: leftArrow, keyDown: true),
+            timestamp: 1.030
+        )
+        _ = engine.handleKeyUp(
+            keyCode: leftArrow,
+            event: makeCGEvent(keyCode: leftArrow, keyDown: false),
+            timestamp: 1.060
+        )
+
+        #expect(delegate.holds.map(\.position) == [.leftPinky])
+        #expect(delegate.flushedEvents.count == 1)
+        #expect(delegate.flushedEvents[0].map(\.keyCode) == [leftArrow, leftArrow])
+    }
+
+    @Test("Bilateral key-down uses right-side arrows as shortcut triggers")
+    func bilateralKeyDownUsesRightSideArrowsAsShortcutTriggers() {
+        var config = DefaultConfiguration.make()
+        config.holdTriggerOnRelease = false
+        let (engine, delegate) = makeEngine(config: config)
+        let leftArrow = UInt16(kVK_LeftArrow)
+
+        _ = engine.handleKeyDown(
+            keyCode: keyA,
+            event: makeCGEvent(keyCode: keyA, keyDown: true),
+            timestamp: 1.000
+        )
+        _ = engine.handleKeyDown(
+            keyCode: leftArrow,
+            event: makeCGEvent(keyCode: leftArrow, keyDown: true),
+            timestamp: 1.030
+        )
+        _ = engine.handleKeyUp(
+            keyCode: leftArrow,
+            event: makeCGEvent(keyCode: leftArrow, keyDown: false),
+            timestamp: 1.060
+        )
+
+        #expect(delegate.holds.map(\.position) == [.leftPinky])
+        #expect(delegate.flushedEvents.count == 1)
+        #expect(delegate.flushedEvents[0].map(\.keyCode) == [leftArrow, leftArrow])
+    }
+
+    @Test("Bilateral filtering rejects arrows for right-hand HRM keys")
+    func bilateralFilteringRejectsArrowsForRightHandHrmKeys() {
+        let (engine, delegate) = makeEngine(config: DefaultConfiguration.make())
+        let leftArrow = UInt16(kVK_LeftArrow)
+
+        _ = engine.handleKeyDown(
+            keyCode: keyJ,
+            event: makeCGEvent(keyCode: keyJ, keyDown: true),
+            timestamp: 1.000
+        )
+        _ = engine.handleKeyDown(
+            keyCode: leftArrow,
+            event: makeCGEvent(keyCode: leftArrow, keyDown: true),
+            timestamp: 1.030
+        )
+        _ = engine.handleKeyUp(
+            keyCode: leftArrow,
+            event: makeCGEvent(keyCode: leftArrow, keyDown: false),
+            timestamp: 1.060
+        )
+        _ = engine.handleKeyUp(
+            keyCode: keyJ,
+            event: makeCGEvent(keyCode: keyJ, keyDown: false),
+            timestamp: 1.090
+        )
+
+        #expect(delegate.holds.isEmpty)
+        #expect(delegate.actionLog == [.tap("rightIndex")])
     }
 
     // MARK: - Key Rollover

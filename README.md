@@ -55,12 +55,13 @@ Key labels update automatically based on the active macOS input source, so the p
 
 ### Bilateral Filtering
 
-Only triggers a hold when the other key is on the **opposite hand**. This prevents the most common misfire — fast same-hand rolls like "as" or "df" being misinterpreted as modifier combos.
+Only triggers a hold when the other key is on the **opposite physical hand**. This prevents the most common misfire — fast same-hand rolls like "as" or "df" being misinterpreted as modifier combos. Hand detection uses physical key positions, so it works independently of your active input layout.
 
 - **Example**: Holding `A` (Control) + pressing `J` (right hand) = `Control+J`
 - **Example**: Rolling `A` then `S` (both left hand) = types "as"
+- **Example**: Holding `A` + Left Arrow (right-side navigation cluster) = `Control+Left Arrow`
 
-Enabled by default. Can be toggled globally or overridden per key.
+Space, Fn/Globe, and unsupported vendor keys do not trigger a hold when Bilateral Filtering is enabled. Enabled by default. Can be toggled globally or overridden per key.
 
 ### Permissive Hold
 

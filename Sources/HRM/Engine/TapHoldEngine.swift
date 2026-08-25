@@ -71,9 +71,9 @@ final class TapHoldEngine {
             // starting our own state machine — this lets an already-held
             // mod-tap key (e.g. F/Shift) resolve as hold when another
             // mod-tap key (e.g. D) is pressed as a regular keystroke.
-            let position = positionForKeyCode(keyCode)
+            let hand = KeyHandClassifier.hand(for: keyCode)
             for (code, m) in machines where code != keyCode && m.isUndecided {
-                let otherAction = m.onOtherKeyDown(keyCode: keyCode, position: position, at: timestamp)
+                let otherAction = m.onOtherKeyDown(hand: hand, at: timestamp)
                 if otherAction != .none {
                     handleAction(otherAction, machine: m)
                 }
@@ -113,7 +113,7 @@ final class TapHoldEngine {
             m.recordOtherEvent(at: timestamp)
         }
 
-        let position = positionForKeyCode(keyCode)
+        let hand = KeyHandClassifier.hand(for: keyCode)
 
         // Buffer the event BEFORE notifying machines. If the notification
         // resolves all undecided machines, the buffer (including this event)
@@ -131,7 +131,7 @@ final class TapHoldEngine {
         }
 
         for (_, m) in machines where m.isUndecided {
-            let action = m.onOtherKeyDown(keyCode: keyCode, position: position, at: timestamp)
+            let action = m.onOtherKeyDown(hand: hand, at: timestamp)
             if action != .none {
                 handleAction(action, machine: m)
             }
@@ -168,10 +168,10 @@ final class TapHoldEngine {
             // Only notify machines pressed BEFORE this one to distinguish
             // shift (F↓ D↓ D↑ F↑ → F=hold, D=tap) from
             // roll (A↓ S↓ A↑ S↑ → both taps).
-            let position = positionForKeyCode(keyCode)
+            let hand = KeyHandClassifier.hand(for: keyCode)
             for (code, m) in machines where code != keyCode && m.isUndecided {
                 if m.pressTimestamp < machine.pressTimestamp {
-                    let otherAction = m.onOtherKeyUp(keyCode: keyCode, position: position, at: timestamp)
+                    let otherAction = m.onOtherKeyUp(hand: hand, at: timestamp)
                     if otherAction != .none {
                         handleAction(otherAction, machine: m)
                     }
@@ -188,7 +188,7 @@ final class TapHoldEngine {
         }
 
         // Non-mod-tap key up
-        let position = positionForKeyCode(keyCode)
+        let hand = KeyHandClassifier.hand(for: keyCode)
 
         // Buffer the keyUp BEFORE resolving holds — same reasoning as keyDown:
         // if resolution flushes the buffer, this keyUp is included in the
@@ -204,7 +204,7 @@ final class TapHoldEngine {
         }
 
         for (_, m) in machines where m.isUndecided {
-            let action = m.onOtherKeyUp(keyCode: keyCode, position: position, at: timestamp)
+            let action = m.onOtherKeyUp(hand: hand, at: timestamp)
             if action != .none {
                 handleAction(action, machine: m)
             }
@@ -263,8 +263,4 @@ final class TapHoldEngine {
         }
     }
 
-    private func positionForKeyCode(_ keyCode: UInt16) -> KeyPosition? {
-        // Check all bindings (including disabled) for position info
-        config.keyBindings.first { $0.keyCode == keyCode }?.position
-    }
 }

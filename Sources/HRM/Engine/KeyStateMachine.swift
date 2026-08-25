@@ -24,7 +24,7 @@ final class KeyStateMachine {
 
     private let quickTapTerm: TimeInterval
     private let requirePriorIdle: TimeInterval
-    private let holdTriggerPositions: Set<KeyPosition>?
+    private let bilateralFiltering: Bool
     private let holdTriggerOnRelease: Bool
 
     init(binding: KeyBinding, config: Configuration) {
@@ -32,11 +32,7 @@ final class KeyStateMachine {
         self.quickTapTerm = Double(config.effectiveQuickTapTerm(for: binding)) / 1000.0
         self.requirePriorIdle = Double(config.effectiveRequirePriorIdle(for: binding)) / 1000.0
         self.holdTriggerOnRelease = config.holdTriggerOnRelease
-        if config.effectiveBilateralFiltering(for: binding) {
-            self.holdTriggerPositions = Set(KeyPosition.allCases.filter { $0.hand != binding.position.hand })
-        } else {
-            self.holdTriggerPositions = nil
-        }
+        self.bilateralFiltering = config.effectiveBilateralFiltering(for: binding)
     }
 
     // For testing: create with explicit parameters
@@ -44,13 +40,13 @@ final class KeyStateMachine {
         binding: KeyBinding,
         quickTapTerm: TimeInterval = 0,
         requirePriorIdle: TimeInterval = 0,
-        holdTriggerPositions: Set<KeyPosition>? = nil,
+        bilateralFiltering: Bool = false,
         holdTriggerOnRelease: Bool = false
     ) {
         self.binding = binding
         self.quickTapTerm = quickTapTerm
         self.requirePriorIdle = requirePriorIdle
-        self.holdTriggerPositions = holdTriggerPositions
+        self.bilateralFiltering = bilateralFiltering
         self.holdTriggerOnRelease = holdTriggerOnRelease
     }
 
@@ -112,30 +108,25 @@ final class KeyStateMachine {
         }
     }
 
-    func onOtherKeyDown(keyCode: UInt16, position: KeyPosition?, at timestamp: TimeInterval) -> KeyMachineAction {
+    func onOtherKeyDown(hand: KeyHand, at timestamp: TimeInterval) -> KeyMachineAction {
         guard state == .undecided else { return .none }
 
         // Bilateral filtering on key down (skip if holdTriggerOnRelease is enabled)
-        if !holdTriggerOnRelease, let positions = holdTriggerPositions, let pos = position {
-            if !positions.contains(pos) {
-                resolveAsTap(at: timestamp)
-                return .resolvedTap
-            }
+        if bilateralFiltering && !holdTriggerOnRelease && !isOppositeHand(hand) {
+            resolveAsTap(at: timestamp)
+            return .resolvedTap
         }
 
         // Timeless: other key down stays undecided (waits for release)
         return .none
     }
 
-    func onOtherKeyUp(keyCode: UInt16, position: KeyPosition?, at timestamp: TimeInterval) -> KeyMachineAction {
+    func onOtherKeyUp(hand: KeyHand, at timestamp: TimeInterval) -> KeyMachineAction {
         guard state == .undecided else { return .none }
 
         // Bilateral filtering on key up (only when holdTriggerOnRelease is enabled)
-        if holdTriggerOnRelease, let positions = holdTriggerPositions, let pos = position {
-            if !positions.contains(pos) {
-                // Same hand: don't resolve as hold, stay undecided
-                return .none
-            }
+        if bilateralFiltering && holdTriggerOnRelease && !isOppositeHand(hand) {
+            return .none
         }
 
         // Timeless: other key pressed and released = hold
@@ -155,6 +146,17 @@ final class KeyStateMachine {
             state = .quickTapWindow
         } else {
             state = .idle
+        }
+    }
+
+    private func isOppositeHand(_ hand: KeyHand) -> Bool {
+        switch hand {
+        case .left:
+            return binding.position.hand == .right
+        case .right:
+            return binding.position.hand == .left
+        case .neutral, .unknown:
+            return false
         }
     }
 }

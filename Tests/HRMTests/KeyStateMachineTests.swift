@@ -11,14 +11,14 @@ struct KeyStateMachineTests {
     func makeMachine(
         quickTapTerm: TimeInterval = 0,
         requirePriorIdle: TimeInterval = 0,
-        holdTriggerPositions: Set<KeyPosition>? = nil,
+        bilateralFiltering: Bool = false,
         holdTriggerOnRelease: Bool = false
     ) -> KeyStateMachine {
         KeyStateMachine(
             binding: Self.testBinding,
             quickTapTerm: quickTapTerm,
             requirePriorIdle: requirePriorIdle,
-            holdTriggerPositions: holdTriggerPositions,
+            bilateralFiltering: bilateralFiltering,
             holdTriggerOnRelease: holdTriggerOnRelease
         )
     }
@@ -52,11 +52,11 @@ struct KeyStateMachineTests {
     func otherKeyDownUpHold() {
         let sm = makeMachine()
         _ = sm.onPress(at: 1.0)
-        let a1 = sm.onOtherKeyDown(keyCode: 0x0E, position: nil, at: 1.050)
+        let a1 = sm.onOtherKeyDown(hand: .right, at: 1.050)
         #expect(a1 == .none)
         #expect(sm.state == .undecided)
 
-        let a2 = sm.onOtherKeyUp(keyCode: 0x0E, position: nil, at: 1.080)
+        let a2 = sm.onOtherKeyUp(hand: .right, at: 1.080)
         #expect(a2 == .resolvedHold)
         #expect(sm.state == .hold)
     }
@@ -67,8 +67,8 @@ struct KeyStateMachineTests {
     func holdReleaseAction() {
         let sm = makeMachine()
         _ = sm.onPress(at: 1.0)
-        _ = sm.onOtherKeyDown(keyCode: 0x0E, position: nil, at: 1.050)
-        _ = sm.onOtherKeyUp(keyCode: 0x0E, position: nil, at: 1.080)
+        _ = sm.onOtherKeyDown(hand: .right, at: 1.050)
+        _ = sm.onOtherKeyUp(hand: .right, at: 1.080)
         #expect(sm.state == .hold)
 
         let action = sm.onRelease(at: 1.300)
@@ -82,8 +82,8 @@ struct KeyStateMachineTests {
     func repeatPressInHoldState() {
         let sm = makeMachine()
         _ = sm.onPress(at: 1.0)
-        _ = sm.onOtherKeyDown(keyCode: 0x0E, position: nil, at: 1.050)
-        _ = sm.onOtherKeyUp(keyCode: 0x0E, position: nil, at: 1.080)
+        _ = sm.onOtherKeyDown(hand: .right, at: 1.050)
+        _ = sm.onOtherKeyUp(hand: .right, at: 1.080)
         #expect(sm.state == .hold)
 
         // OS sends repeat keyDown — should be ignored, stay in hold
@@ -141,64 +141,78 @@ struct KeyStateMachineTests {
 
     @Test("Bilateral: other key from wrong hand resolves as tap")
     func bilateralWrongHand() {
-        // Left pinky key, only allow right hand positions
-        let sm = makeMachine(holdTriggerPositions: [.rightIndex, .rightMiddle, .rightRing, .rightPinky])
+        let sm = makeMachine(bilateralFiltering: true)
         _ = sm.onPress(at: 1.0)
 
-        // Other key from left hand should force tap
-        let action = sm.onOtherKeyDown(keyCode: 0x01, position: .leftRing, at: 1.050)
+        let action = sm.onOtherKeyDown(hand: .left, at: 1.050)
         #expect(action == .resolvedTap)
     }
 
     @Test("Bilateral: other key from correct hand proceeds normally")
     func bilateralCorrectHand() {
-        let sm = makeMachine(holdTriggerPositions: [.rightIndex, .rightMiddle, .rightRing, .rightPinky])
+        let sm = makeMachine(bilateralFiltering: true)
         _ = sm.onPress(at: 1.0)
 
-        // Other key from right hand — timeless stays undecided on key down
-        let action = sm.onOtherKeyDown(keyCode: 0x26, position: .rightIndex, at: 1.050)
+        let action = sm.onOtherKeyDown(hand: .right, at: 1.050)
         #expect(action == .none)
         #expect(sm.state == .undecided)
+    }
+
+    @Test("Bilateral: neutral and unknown keys resolve as taps on key down")
+    func bilateralNeutralAndUnknownKeysResolveAsTapOnKeyDown() {
+        for hand in [KeyHand.neutral, .unknown] {
+            let sm = makeMachine(bilateralFiltering: true)
+            _ = sm.onPress(at: 1.0)
+
+            let action = sm.onOtherKeyDown(hand: hand, at: 1.050)
+            #expect(action == .resolvedTap)
+        }
     }
 
     // MARK: - Hold Trigger on Release
 
     @Test("Hold trigger on release: same-hand key down stays undecided")
     func holdTriggerOnReleaseSameHandDown() {
-        let positions: Set<KeyPosition> = [.rightIndex, .rightMiddle, .rightRing, .rightPinky]
-        let sm = makeMachine(holdTriggerPositions: positions, holdTriggerOnRelease: true)
+        let sm = makeMachine(bilateralFiltering: true, holdTriggerOnRelease: true)
         _ = sm.onPress(at: 1.0)
 
-        // Same-hand key down — with holdTriggerOnRelease, stays undecided (no early reject)
-        let action = sm.onOtherKeyDown(keyCode: 0x01, position: .leftRing, at: 1.050)
+        let action = sm.onOtherKeyDown(hand: .left, at: 1.050)
         #expect(action == .none)
         #expect(sm.state == .undecided)
     }
 
     @Test("Hold trigger on release: same-hand key up stays undecided")
     func holdTriggerOnReleaseSameHandUp() {
-        let positions: Set<KeyPosition> = [.rightIndex, .rightMiddle, .rightRing, .rightPinky]
-        let sm = makeMachine(holdTriggerPositions: positions, holdTriggerOnRelease: true)
+        let sm = makeMachine(bilateralFiltering: true, holdTriggerOnRelease: true)
         _ = sm.onPress(at: 1.0)
-        _ = sm.onOtherKeyDown(keyCode: 0x01, position: .leftRing, at: 1.050)
+        _ = sm.onOtherKeyDown(hand: .left, at: 1.050)
 
-        // Same-hand key up — bilateral check on release rejects, stays undecided
-        let action = sm.onOtherKeyUp(keyCode: 0x01, position: .leftRing, at: 1.080)
+        let action = sm.onOtherKeyUp(hand: .left, at: 1.080)
         #expect(action == .none)
         #expect(sm.state == .undecided)
     }
 
     @Test("Hold trigger on release: opposite-hand key up resolves hold")
     func holdTriggerOnReleaseOppositeHandUp() {
-        let positions: Set<KeyPosition> = [.rightIndex, .rightMiddle, .rightRing, .rightPinky]
-        let sm = makeMachine(holdTriggerPositions: positions, holdTriggerOnRelease: true)
+        let sm = makeMachine(bilateralFiltering: true, holdTriggerOnRelease: true)
         _ = sm.onPress(at: 1.0)
-        _ = sm.onOtherKeyDown(keyCode: 0x26, position: .rightIndex, at: 1.050)
+        _ = sm.onOtherKeyDown(hand: .right, at: 1.050)
 
-        // Opposite-hand key up — resolves as hold
-        let action = sm.onOtherKeyUp(keyCode: 0x26, position: .rightIndex, at: 1.080)
+        let action = sm.onOtherKeyUp(hand: .right, at: 1.080)
         #expect(action == .resolvedHold)
         #expect(sm.state == .hold)
+    }
+
+    @Test("Hold trigger on release: neutral and unknown keys do not resolve hold")
+    func holdTriggerOnReleaseNeutralAndUnknownKeysDoNotResolveHold() {
+        for hand in [KeyHand.neutral, .unknown] {
+            let sm = makeMachine(bilateralFiltering: true, holdTriggerOnRelease: true)
+            _ = sm.onPress(at: 1.0)
+
+            let action = sm.onOtherKeyUp(hand: hand, at: 1.080)
+            #expect(action == .none)
+            #expect(sm.state == .undecided)
+        }
     }
 
     // MARK: - Edge Cases
@@ -206,8 +220,8 @@ struct KeyStateMachineTests {
     @Test("Other key events on idle state are no-op")
     func otherKeyOnIdleNoop() {
         let sm = makeMachine()
-        let a1 = sm.onOtherKeyDown(keyCode: 0x0E, position: nil, at: 1.0)
-        let a2 = sm.onOtherKeyUp(keyCode: 0x0E, position: nil, at: 1.0)
+        let a1 = sm.onOtherKeyDown(hand: .unknown, at: 1.0)
+        let a2 = sm.onOtherKeyUp(hand: .unknown, at: 1.0)
         #expect(a1 == .none)
         #expect(a2 == .none)
     }
